@@ -8,8 +8,8 @@ import sparkpolars as sp
 
 #module imports
 from naming_standards import Tablename
-from .fv import FrameTypeVerifier
-from .flexread import _load_spark_df, _load_pandas_df, _load_polars_df
+from .frame_check import FrameTypeVerifier
+from .load_dfs import _load_spark_df, _load_pandas_df, _load_polars_df
 from adaptiveio.pathing import normalisePaths
 
 class MultiTable: 
