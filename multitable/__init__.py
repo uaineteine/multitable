@@ -77,30 +77,3 @@ def print_all_environment_variables():
         print(f"{key}: {value}")
     print("-" * 120)
     print(f"Total environment variables: {len(env_vars)}")
-
-def check_required_variables() -> bool:
-    """
-    Checks whether all required environment variables are set and point to valid directories.
-
-    Returns:
-        bool: True if all required environment variables are set and their paths exist, False otherwise.
-    """
-    for var in REQ_VARIABLES:
-        value = os.environ.get(var)
-        if not value or not os.path.exists(value):
-            return False
-    return True
-
-def check_variable_set(var_name: str) -> bool:
-    """
-    Checks whether a specific environment variable is set and points to a valid directory.
-
-    Args:
-        var_name (str): The name of the environment variable to check.
-    Returns:
-        bool: True if the environment variable is set and the path exists, False otherwise. 
-    """
-    value = os.environ.get(var_name)
-    if value and os.path.exists(value):
-        return True
-    return False
