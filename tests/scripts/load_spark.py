@@ -9,19 +9,19 @@ from tabulate import tabulate
 # Create Spark session
 from pyspark.sql import SparkSession
 print("Creating Spark session")
-appName = "Multitable_Unit_Tests"
+appName = "Multitable Unit Tests"
 # Set driver memory before creating the Spark session
 spark = SparkSession.builder.master("local").appName(appName).getOrCreate()
 
 test_tables = get_test_paths()
-print("running tests with polars")
+print("running tests with pyspark")
 for t in test_tables:
     print(f"Attempting load of... {t}")
     # get extension safely
     _, file_extension = os.path.splitext(t)
     file_extension = file_extension.lstrip(".")  # remove leading dot
 
-    mt = MultiTable.load(t, format=file_extension, frame_type=FrameTypeVerifier.polars)
+    mt = MultiTable.load(t, format=file_extension, frame_type=FrameTypeVerifier.pyspark, spark=spark)
 
     mt.show()
     print(f"Number of columns: {mt.nvars}")
@@ -40,7 +40,7 @@ for t in test_tables:
     pd_df = mt.get_pandas_frame()
     print(tabulate(pd_df, headers="keys", tablefmt="pretty", showindex=False))
 
-    print("Testing spark conversion")
-    sp_df = mt.get_spark_frame()
-    sp_df.show()
-
+    print("Testing polars conversion")
+    pl_df = mt.get_polars_lazy_frame()
+    pl_df.head()
+    

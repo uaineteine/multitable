@@ -2,7 +2,7 @@ import os
 from typing import Union, List
 import polars as pl
 import pandas as pd
-from pyspark.sql import DataFrame as SparkDataFrame
+from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
 from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split
 import sparkpolars as sp
 
@@ -233,7 +233,7 @@ class MultiTable:
         else:
             raise ValueError("Unsupported frame_type")
 
-    def get_pandas_frame(self):
+    def get_pandas_frame(self) -> pd.DataFrame:
         """
         Convert the DataFrame to a Pandas DataFrame.
         
@@ -261,7 +261,7 @@ class MultiTable:
         else:
             raise ValueError("Unsupported frame_type")
 
-    def get_polars_lazy_frame(self):
+    def get_polars_lazy_frame(self) -> pl.LazyFrame:
         """
         Convert the DataFrame to a Polars LazyFrame.
         
@@ -290,6 +290,32 @@ class MultiTable:
         else:
             raise ValueError("Unsupported frame_type")
     
+    def get_spark_frame(self, spark:SparkSession) -> SparkDataFrame:
+        """
+        Convert the DataFrame to a pyspark DataFrame.
+        
+        This method provides a unified way to convert any supported DataFrame type
+        to a spark DataFrame for lazy evaluation and optimisation.
+
+        Returns:
+            pyspark.sql.DataFrame: A pyspark DataFrame representation of the data.
+
+        Raises:
+            ValueError: If the frame_type is not supported.
+        """
+        if self.frame_type == "pyspark":
+            print("WARNING: Unoptimised code, DataFrame is already a pyspark DataFrame.")
+            return self.df
+        elif self.frame_type == "polars":
+            print("WARNING: Highly inefficient conversion polars -> pandas -> pyspark")
+            pd_df = self.get_pandas_frame()
+            sp_df = spark.createDataFrame(pd_df)
+            return sp_df
+        elif self.frame_type == "pandas":
+            return spark.createDataFrame(self.df)
+        else:
+            raise ValueError("Unsupported frame_type")
+
     def select(self, *columns):
         """
         Select specific columns from the DataFrame.
