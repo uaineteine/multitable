@@ -229,7 +229,7 @@ class MultiTable:
         elif self.frame_type == "pandas":
             return len(self.df)
         elif self.frame_type == "polars":
-            return self.df.height
+            return self.df.select(pl.count()).collect().item()
         else:
             raise ValueError("Unsupported frame_type")
 
