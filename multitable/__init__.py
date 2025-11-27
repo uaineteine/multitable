@@ -31,32 +31,6 @@ def expected_meta_version(this_version:str) -> bool:
     
     return cnd_match
 
-def detect_if_hadoop_home_set() -> bool:
-    """
-    Checks whether the HADOOP_HOME environment variable is set and points to a valid directory.
-
-    Returns:
-        bool: True if HADOOP_HOME is set and the path exists, False otherwise.
-    """
-    home = os.environ.get("HADOOP_HOME")
-    if home and os.path.exists(home):
-        return True
-    return False
-
-def setup_hadoop_home(hadoop_home_path: str):
-    """
-    Sets the HADOOP_HOME environment variable to the specified path.
-
-    Args:
-        hadoop_home_path (str): The path to the HADOOP installation directory.
-
-    Raises:
-        ValueError: If the provided path does not exist.
-    """
-    if not os.path.exists(hadoop_home_path):
-        raise ValueError(f"Provided HADOOP_HOME path does not exist: {hadoop_home_path}")
-    os.environ["HADOOP_HOME"] = hadoop_home_path
-
 def list_all_environment_variables() -> dict:
     """
     Lists all environment variables currently set in the system.

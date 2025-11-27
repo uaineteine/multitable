@@ -1,6 +1,6 @@
 # Multitable
 
-![py version](https://img.shields.io/badge/python-3.10+-blue) ![Version 1.0.0](https://img.shields.io/badge/version-1.0.0-brightgreen)
+![py version](https://img.shields.io/badge/python-3.10+-blue) ![Version 1.0.1](https://img.shields.io/badge/version-1.0.1-brightgreen)
 
 This program provides a data transformation framework for working with tables (DataFrames) in PySpark, Pandas, or Polars. It tracks all transformations and important events in a structured, auditable way using JSON logs.
 
@@ -47,7 +47,7 @@ This program provides a data transformation framework for working with tables (D
     |-- template_load_pipe.py
     `-- template_custom_transform.py
 
-**Note:** The naming functionality (Tablename, Colname, ColList, NamedList) has been split into a separate `naming-standards` package (v1.0.0).
+**Note:** The naming functionality (Tablename, Colname, ColList, NamedList) has been split into a separate `naming-standards` package (v1.0.1).
 ```
 
 ## Summary
