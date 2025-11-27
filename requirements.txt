@@ -3,7 +3,6 @@ tabulate
 pandas
 pyspark
 polars-readstat
-sparkpolars
 deltalake
 naming-standards>=1.0.0
 adaptiveio>=2.0.1

@@ -4,7 +4,6 @@ import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
 from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split
-import sparkpolars as sp
 
 #module imports
 from naming_standards import Tablename
@@ -280,8 +279,8 @@ class MultiTable:
             >>> print(type(lazy_frame))  # <class 'polars.lazyframe.frame.LazyFrame'>
         """
         if self.frame_type == "pyspark":
-            lf = sp.from_spark(self.df)
-            return lf.lazy()
+            pd_df = self.get_pandas_frame()
+            return pl.from_pandas(pd_df)
         elif self.frame_type == "polars":
             print("WARNING: Unoptimised code, DataFrame is already a polars LazyFrame.")
             return self.df
