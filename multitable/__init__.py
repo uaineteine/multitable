@@ -30,24 +30,3 @@ def expected_meta_version(this_version:str) -> bool:
         print(f"DAG Code expects meta version of: {meta_version}")
     
     return cnd_match
-
-def list_all_environment_variables() -> dict:
-    """
-    Lists all environment variables currently set in the system.
-
-    Returns:
-        dict: A dictionary containing all environment variables as key-value pairs.
-    """
-    return dict(os.environ)
-
-def print_all_environment_variables():
-    """
-    Prints all environment variables currently set in the system in a formatted way.
-    """
-    env_vars = os.environ
-    print("Environment Variables:")
-    print("-" * 120)
-    for key, value in sorted(env_vars.items()):
-        print(f"{key}: {value}")
-    print("-" * 120)
-    print(f"Total environment variables: {len(env_vars)}")
