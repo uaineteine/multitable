@@ -26,6 +26,13 @@ for t in test_tables:
     mt.show()
     print(f"Number of columns: {mt.nvars}")
     print(f"Number of entries: {mt.nrow}")
+    print("Data types:")
+    print(mt.dtypes)
+
+    print("")
+    print("Test copying")
+    mt_copy = mt.copy()
+
 
     #test some basic functionality
     print("Testing conversions on frame...")
