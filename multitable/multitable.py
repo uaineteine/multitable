@@ -814,7 +814,8 @@ class MultiTable:
         if self.frame_type == "pandas":
             self.df = self.df.sort_values(by=by, ascending=ascending)
         elif self.frame_type == "polars":
-            self.df = self.df.sort(by, reverse=[not asc for asc in ascending])
+            # Polars expects descending, so invert ascending
+            self.df = self.df.sort(by, descending=[not asc for asc in ascending])
         elif self.frame_type == "pyspark":
             sort_cols = [col(c) if asc else col(c).desc() for c, asc in zip(by, ascending)]
             self.df = self.df.orderBy(*sort_cols)

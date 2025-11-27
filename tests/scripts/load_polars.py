@@ -32,6 +32,7 @@ for t in test_tables:
     print("")
     print("Test copying")
     mt_copy = mt.copy()
+    mt_copy.show()
 
 
     #test some basic functionality
@@ -48,6 +49,6 @@ for t in test_tables:
     print(tabulate(pd_df, headers="keys", tablefmt="pretty", showindex=False))
 
     print("Testing spark conversion")
-    sp_df = mt.get_spark_frame()
+    sp_df = mt.get_spark_frame(spark)
     sp_df.show()
 

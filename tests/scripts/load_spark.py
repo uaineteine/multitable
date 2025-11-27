@@ -32,6 +32,7 @@ for t in test_tables:
     print("")
     print("Test copying")
     mt_copy = mt.copy()
+    mt_copy.show()
 
 
     #test some basic functionality
