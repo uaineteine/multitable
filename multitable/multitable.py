@@ -257,7 +257,7 @@ class MultiTable:
             print("WARNING: Unoptimised code, DataFrame is already a Pandas DataFrame.")
             return self.df
         elif self.frame_type == "polars":
-            return self.df.to_pandas()
+            return self.df.collect().to_pandas()
         else:
             raise ValueError("Unsupported frame_type")
 

@@ -17,3 +17,8 @@ for t in test_tables:
     mt.show()
     print(f"Number of columns: {mt.nvars}")
     print(f"Number of entries: {mt.nrow}")
+
+    #test some basic functionality
+    print("Testing conversions on frame")
+    pd_df = mt.get_pandas_frame()
+    print(pd_df)
