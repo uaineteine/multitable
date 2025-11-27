@@ -6,7 +6,7 @@ import os
 #pre compile setup.py
 # generate_setup.py
 
-package_name = "transformslib"
+package_name = "multitable"
 version = "1.0.0"
 author = ""
 author_email = ""
@@ -37,7 +37,7 @@ setup(
     version="{version}",
     author="{author}",
     author_email="{author_email}",
-    description="A python package of a working transforms framework",
+    description="A python package of flexible data frames and processing",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="{url}",

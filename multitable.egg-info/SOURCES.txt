@@ -1,0 +1,11 @@
+setup.py
+multitable/__init__.py
+multitable/frame_check.py
+multitable/load_dfs.py
+multitable/multitable.py
+multitable/schema_val.py
+multitable.egg-info/PKG-INFO
+multitable.egg-info/SOURCES.txt
+multitable.egg-info/dependency_links.txt
+multitable.egg-info/requires.txt
+multitable.egg-info/top_level.txt
