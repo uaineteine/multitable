@@ -307,8 +307,8 @@ class MultiTable:
             print("WARNING: Unoptimised code, DataFrame is already a pyspark DataFrame.")
             return self.df
         elif self.frame_type == "polars":
-            sp_df = sp.to_spark(self.df, spark)
-            return sp_df
+            print("WARNING: Performance of polars -> pandas -> pyspark is poorly optimised")
+            raise ValueError("Unsupported conversion")
         elif self.frame_type == "pandas":
             return spark.createDataFrame(self.df)
         else:

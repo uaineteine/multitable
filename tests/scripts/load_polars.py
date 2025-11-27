@@ -6,13 +6,6 @@ from multitable import MultiTable, FrameTypeVerifier
 from get_test_data import get_test_paths
 from tabulate import tabulate
 
-# Create Spark session
-from pyspark.sql import SparkSession
-print("Creating Spark session")
-appName = "Multitable_Unit_Tests"
-# Set driver memory before creating the Spark session
-spark = SparkSession.builder.master("local").appName(appName).getOrCreate()
-
 test_tables = get_test_paths()
 print("running tests with polars")
 for t in test_tables:
@@ -47,8 +40,4 @@ for t in test_tables:
     print("Testing pandas conversion")
     pd_df = mt.get_pandas_frame()
     print(tabulate(pd_df, headers="keys", tablefmt="pretty", showindex=False))
-
-    print("Testing spark conversion")
-    sp_df = mt.get_spark_frame(spark)
-    sp_df.show()
 
