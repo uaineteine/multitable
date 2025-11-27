@@ -2,9 +2,8 @@ import os
 from typing import Union, List
 import polars as pl
 import pandas as pd
-from pyspark.sql import DataFrame as SparkDataFrame
+from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
 from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split
-import sparkpolars as sp
 
 #module imports
 from naming_standards import Tablename
@@ -233,7 +232,7 @@ class MultiTable:
         else:
             raise ValueError("Unsupported frame_type")
 
-    def get_pandas_frame(self):
+    def get_pandas_frame(self) -> pd.DataFrame:
         """
         Convert the DataFrame to a Pandas DataFrame.
         
@@ -261,7 +260,7 @@ class MultiTable:
         else:
             raise ValueError("Unsupported frame_type")
 
-    def get_polars_lazy_frame(self):
+    def get_polars_lazy_frame(self) -> pl.LazyFrame:
         """
         Convert the DataFrame to a Polars LazyFrame.
         
@@ -280,8 +279,8 @@ class MultiTable:
             >>> print(type(lazy_frame))  # <class 'polars.lazyframe.frame.LazyFrame'>
         """
         if self.frame_type == "pyspark":
-            lf = sp.from_spark(self.df)
-            return lf.lazy()
+            pd_df = self.get_pandas_frame()
+            return pl.from_pandas(pd_df)
         elif self.frame_type == "polars":
             print("WARNING: Unoptimised code, DataFrame is already a polars LazyFrame.")
             return self.df
@@ -290,6 +289,30 @@ class MultiTable:
         else:
             raise ValueError("Unsupported frame_type")
     
+    def get_spark_frame(self, spark:SparkSession) -> SparkDataFrame:
+        """
+        Convert the DataFrame to a pyspark DataFrame.
+        
+        This method provides a unified way to convert any supported DataFrame type
+        to a spark DataFrame for lazy evaluation and optimisation.
+
+        Returns:
+            pyspark.sql.DataFrame: A pyspark DataFrame representation of the data.
+
+        Raises:
+            ValueError: If the frame_type is not supported.
+        """
+        if self.frame_type == "pyspark":
+            print("WARNING: Unoptimised code, DataFrame is already a pyspark DataFrame.")
+            return self.df
+        elif self.frame_type == "polars":
+            print("WARNING: Performance of polars -> pandas -> pyspark is poorly optimised")
+            raise ValueError("Unsupported conversion")
+        elif self.frame_type == "pandas":
+            return spark.createDataFrame(self.df)
+        else:
+            raise ValueError("Unsupported frame_type")
+
     def select(self, *columns):
         """
         Select specific columns from the DataFrame.
@@ -790,7 +813,8 @@ class MultiTable:
         if self.frame_type == "pandas":
             self.df = self.df.sort_values(by=by, ascending=ascending)
         elif self.frame_type == "polars":
-            self.df = self.df.sort(by, reverse=[not asc for asc in ascending])
+            # Polars expects descending, so invert ascending
+            self.df = self.df.sort(by, descending=[not asc for asc in ascending])
         elif self.frame_type == "pyspark":
             sort_cols = [col(c) if asc else col(c).desc() for c, asc in zip(by, ascending)]
             self.df = self.df.orderBy(*sort_cols)
