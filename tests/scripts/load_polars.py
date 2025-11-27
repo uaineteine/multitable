@@ -3,15 +3,9 @@ import os
 import sys
 sys.path.append("../..")
 from multitable import MultiTable, FrameTypeVerifier
+from get_test_data import get_test_paths
 
-# list the filepaths
-test_tables_pth = "../test_tables"
-test_tables = [
-    os.path.join(test_tables_pth, f)
-    for f in os.listdir(test_tables_pth)
-    if os.path.isfile(os.path.join(test_tables_pth, f))
-]
-
+test_tables = get_test_paths()
 for t in test_tables:
     print(f"Attempting load of... {t}")
     # get extension safely
