@@ -25,6 +25,9 @@ for t in test_tables:
     print("De-dup / distinct checks")
     mt = mt.distinct()
 
+    print("Testing the sort")
+    mt = mt.sort(by=mt.columns)
+
     print("Testing pandas conversion")
     pd_df = mt.get_pandas_frame()
     print(tabulate(pd_df, headers="keys", tablefmt="pretty", showindex=False))
