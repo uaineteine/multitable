@@ -34,7 +34,7 @@ Dependencies
 * pyspark
 * polars-readstat
 * deltalake
-* naming-standards>=1.0.2
+* naming-standards>=1.0.0
 * adaptiveio>=2.0.1
 
 
