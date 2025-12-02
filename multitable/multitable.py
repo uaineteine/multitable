@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Union, List
 import polars as pl
 import pandas as pd
@@ -768,7 +769,9 @@ class MultiTable:
 
         elif self.frame_type == "pyspark":
             if sep:
-                self.df = self.df.withColumn(column, split(col(column), sep))
+                # Escape regex special characters for PySpark split function
+                escaped_sep = re.escape(sep)
+                self.df = self.df.withColumn(column, split(col(column), escaped_sep))
 
             if outer:
                 self.df = self.df.withColumn(column, explode_outer(col(column)))
