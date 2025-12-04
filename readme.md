@@ -21,6 +21,9 @@ This program provides a data loading framework for working with tables (DataFram
 ```
 |-- multitable/
   |-- __init__.py
+  |-- load_dfs.py
+  |-- multitable.py
+  |-- schema_val.py
   `-- frame_check.py
 
 ```
