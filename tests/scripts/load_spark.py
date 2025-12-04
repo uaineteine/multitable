@@ -54,3 +54,5 @@ for t in test_tables:
 
     mt.write(f"../test_tables/test_outputs/spark/{os.path.basename(t)}.parquet", "parquet", spark=spark)
     
+    
+sys.exit(0)
