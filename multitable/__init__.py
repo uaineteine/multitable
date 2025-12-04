@@ -14,7 +14,7 @@ from .frame_check import FrameTypeVerifier
 
 # CONSTANT PARAMETERS FOR MODULE
 
-module_version = "1.0"
+module_version = "1.0.3"
 meta_version = "1.0"
 """str: The version number of this module.
 Used to track compatibility and changes across releases.
