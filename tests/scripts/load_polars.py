@@ -41,3 +41,4 @@ for t in test_tables:
     pd_df = mt.get_pandas_frame()
     print(tabulate(pd_df, headers="keys", tablefmt="pretty", showindex=False))
 
+    mt.write(f"../test_tables/test_outputs/polars/{os.path.basename(t)}.parquet", "parquet")

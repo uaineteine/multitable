@@ -15,6 +15,15 @@ echo Removing the previous test_log.txt file if it exists...
 if exist tests\test_log.txt del tests\test_log.txt
 
 cd tests
+
+REM Search and remove all saved outputs recursively
+for /d /r %%d in (test_outputs) do (
+    if exist "%%d" (
+        echo Deleting %%d
+        rmdir /s /q "%%d"
+    )
+)
+
 cd scripts
 
 powershell -Command "python load_polars.py | Tee-Object -FilePath ../../tests/test_log.txt -Append"
