@@ -52,5 +52,5 @@ for t in test_tables:
     pl_df = mt.get_polars_lazy_frame()
     pl_df.head()
 
-    mt.write(f"../test_tables/test_outputs/polars/{os.path.basename(t)}.parquet", "parquet", spark=spark)
+    mt.write(f"../test_tables/test_outputs/spark/{os.path.basename(t)}.parquet", "parquet", spark=spark)
     
