@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: multitable
-Version: 1.0.3
+Version: 1.0.4
 Summary: A python package of flexible data frames and processing
 Home-page: 
 Author: 
@@ -9,10 +9,24 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+Requires-Dist: polars
+Requires-Dist: tabulate
+Requires-Dist: pandas
+Requires-Dist: pyspark
+Requires-Dist: polars-readstat
+Requires-Dist: deltalake
+Requires-Dist: naming-standards>=1.0.0
+Requires-Dist: adaptiveio>=2.0.4
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Multitable
 
-![py version](https://img.shields.io/badge/python-3.10+-blue) ![Version 1.0.3](https://img.shields.io/badge/version-1.0.3-brightgreen)  [![Lint Check](https://github.com/uaineteine/multitable/actions/workflows/lint_check.yaml/badge.svg)](https://github.com/uaineteine/multitable/actions/workflows/lint_check.yaml) [![Dup Checks](https://github.com/uaineteine/multitable/actions/workflows/dup_checks.yaml/badge.svg)](https://github.com/uaineteine/multitable/actions/workflows/dup_checks.yaml) [![Package](https://github.com/uaineteine/multitable/actions/workflows/package.yaml/badge.svg)](https://github.com/uaineteine/multitable/actions/workflows/package.yaml) [![Unit Tests](https://github.com/uaineteine/multitable/actions/workflows/unit_tests.yaml/badge.svg)](https://github.com/uaineteine/multitable/actions/workflows/unit_tests.yaml)
+![py version](https://img.shields.io/badge/python-3.10+-blue) ![Version 1.0.4](https://img.shields.io/badge/version-1.0.4-brightgreen)  [![Lint Check](https://github.com/uaineteine/multitable/actions/workflows/lint_check.yaml/badge.svg)](https://github.com/uaineteine/multitable/actions/workflows/lint_check.yaml) [![Dup Checks](https://github.com/uaineteine/multitable/actions/workflows/dup_checks.yaml/badge.svg)](https://github.com/uaineteine/multitable/actions/workflows/dup_checks.yaml) [![Package](https://github.com/uaineteine/multitable/actions/workflows/package.yaml/badge.svg)](https://github.com/uaineteine/multitable/actions/workflows/package.yaml) [![Unit Tests](https://github.com/uaineteine/multitable/actions/workflows/unit_tests.yaml/badge.svg)](https://github.com/uaineteine/multitable/actions/workflows/unit_tests.yaml)
 
 This program provides a data loading framework for working with tables (DataFrames) in PySpark, Pandas, or Polars. 
 
