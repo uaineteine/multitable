@@ -1,4 +1,4 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: multitable
 Version: 1.0.4
 Summary: A python package of flexible data frames and processing
@@ -9,6 +9,20 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+Requires-Dist: polars
+Requires-Dist: tabulate
+Requires-Dist: pandas
+Requires-Dist: pyspark
+Requires-Dist: polars-readstat
+Requires-Dist: deltalake
+Requires-Dist: naming-standards>=1.0.0
+Requires-Dist: adaptiveio>=2.0.4
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Multitable
 
