@@ -7,7 +7,7 @@ import os
 # generate_setup.py
 
 package_name = "multitable"
-version = "1.0.3"
+version = "1.0.4"
 author = ""
 author_email = ""
 url = ""

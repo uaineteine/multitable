@@ -643,54 +643,57 @@ class MultiTable:
         """
         Write a DataFrame to a file in the specified format.
         """
-        if frame_type == "pyspark":
-            if spark is None:
-                raise ValueError("MT205 SparkSession required for PySpark")
-            
-            target_size = os.environ.get("TNSFRMS_TAR_PART_SIZE", 1024*1024*256)  # Default to 256MB
-            spark.conf.set("spark.sql.files.maxPartitionBytes", target_size)  # TARGET SIZE
+        try:
+            if frame_type == "pyspark":
+                if spark is None:
+                    raise ValueError("MT205 SparkSession required for PySpark")
+                
+                target_size = os.environ.get("TNSFRMS_TAR_PART_SIZE", 1024*1024*256)  # Default to 256MB
+                spark.conf.set("spark.sql.files.maxPartitionBytes", target_size)  # TARGET SIZE
 
-            mode = "overwrite" if overwrite else "error"
+                mode = "overwrite" if overwrite else "error"
 
-            print(f"Writing to {path} as {format} with mode={mode} (compression=zstd)")
-
-            if format == "parquet":
-                if part_on != []:
-                    dataframe.write.mode(mode).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
+                print(f"Writing to {path} as {format} with mode={mode} (compression=zstd)")
+                
+                if format == "parquet":
+                    if part_on != []:
+                        dataframe.write.mode(mode).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
+                    else:
+                        dataframe.write.mode(mode).option("compression", "zstd").format(format).save(path)
+                elif format == "delta":
+                    if part_on != []:
+                        dataframe.write.mode(mode).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
+                    else:
+                        dataframe.write.mode(mode).option("compression", "zstd").format(format).save(path)
                 else:
-                    dataframe.write.mode(mode).option("compression", "zstd").format(format).save(path)
-            elif format == "delta":
-                if part_on != []:
-                    dataframe.write.mode(mode).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
-                else:
-                    dataframe.write.mode(mode).option("compression", "zstd").format(format).save(path)
-            else:
-                if part_on != []:
-                    raise ValueError("MT400 parting dataset not supported on this format: {format}")
-                else:
-                    dataframe.write.mode(mode).format(format).save(path)
+                    if part_on != []:
+                        raise ValueError("MT400 parting dataset not supported on this format: {format}")
+                    else:
+                        dataframe.write.mode(mode).format(format).save(path)
 
-        elif frame_type == "pandas":
-            if part_on != []:
-                raise ValueError("MT401 parting dataset not supported on this format: {format}")
+            elif frame_type == "pandas":
+                if part_on != []:
+                    raise ValueError("MT401 parting dataset not supported on this format: {format}")
+                
+                if os.path.exists(path) and not overwrite:
+                    raise FileExistsError(f"MT501 File {path} already exists and overwrite is False.")
+                if format == "parquet":
+                    dataframe.to_parquet(path, index=False, compression="zstd")
+                else:
+                    dataframe.to_parquet(path, index=False)
             
-            if os.path.exists(path) and not overwrite:
-                raise FileExistsError(f"MT501 File {path} already exists and overwrite is False.")
-            if format == "parquet":
-                dataframe.to_parquet(path, index=False, compression="zstd")
-            else:
-                dataframe.to_parquet(path, index=False)
-        
-        elif frame_type == "polars":
-            if part_on != []:
-                raise ValueError("MT402 parting dataset not supported on this format: {format}")
-            
-            if os.path.exists(path) and not overwrite:
-                raise FileExistsError(f"MT502 File {path} already exists and overwrite is False.")
-            if format == "parquet":
-                dataframe.sink_parquet(path, compression="zstd", compression_level=1)
-            else:
-                dataframe.sink_parquet(path)
+            elif frame_type == "polars":
+                if part_on != []:
+                    raise ValueError("MT402 parting dataset not supported on this format: {format}")
+                
+                if os.path.exists(path) and not overwrite:
+                    raise FileExistsError(f"MT502 File {path} already exists and overwrite is False.")
+                if format == "parquet":
+                    dataframe.sink_parquet(path, compression="zstd", compression_level=1)
+                else:
+                    dataframe.sink_parquet(path)
+        except Exception as e:
+            print(f"MT800 cannot write file out. PATH {path} FORMAT {format}. EXCEPTION {e}")
 
     def write(self, path:str, format: str = "parquet", overwrite: bool = True, part_on:list[str]=[], spark=None):
         """
