@@ -6,6 +6,8 @@ import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
 from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split
 
+from functools import reduce
+
 #module imports
 from naming_standards import Tablename
 from .frame_check import FrameTypeVerifier
@@ -910,3 +912,28 @@ class MultiTable:
         
         else:
             raise ValueError("Unsupported frame_type")
+
+def concat(frames:list[MultiTable], engine:str) -> MultiTable:
+    if not frames:
+        raise ValueError("No frames to concatenate")
+    native_frames = [f.df for f in frames]
+
+    if engine == "pandas":
+        combined = pd.concat(native_frames, ignore_index=True)
+
+    elif engine == "polars":
+        combined = pl.concat(native_frames)
+
+    elif engine == "pyspark":
+        # Safe union across all frames
+        if len(native_frames) == 1:
+            combined = native_frames[0]
+        else:
+            combined = reduce(lambda df1, df2: df1.union(df2), native_frames)
+
+    else:
+        raise NotImplementedError(
+            f"RS400 Metaframe appendage not implemented for backend '{engine}'"
+        )
+    
+    return MultiTable(combined, src_path=frames[0].src_path, table_name=frames[0].table_name, frame_type=engine)
