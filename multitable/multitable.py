@@ -4,7 +4,9 @@ from typing import Union, List
 import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
-from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split
+from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, round as spark_round
+
+from functools import reduce
 
 #module imports
 from naming_standards import Tablename
@@ -853,6 +855,28 @@ class MultiTable:
 
         return self
 
+    def round(self, column:str, decimals: int = 0):
+        """
+        Round numerical columns to a specified number of decimal places in-place.
+
+        Args:
+            decimals (int, optional): Number of decimal places to round to. Defaults to 0.
+        """
+        #error check
+        if column not in self.columns:
+                raise ValueError(f"MT750 Column '{column}' does not exist in the DataFrame.")
+        
+        if self.frame_type == "pandas":
+            self.df[column] = self.df[column].round(decimals)
+        elif self.frame_type == "polars":
+            self.df = self.df.with_columns(
+                pl.col(column).round(decimals).alias(column)
+            )
+        elif self.frame_type == "pyspark":
+            self.df = self.df.withColumn(
+                column, spark_round(col(column), decimals)
+            )
+    
     def sample(self, n: int = None, frac: float = None, seed: int = None):
         """
         Sample rows from the DataFrame and replace the existing DataFrame inplace.
@@ -910,3 +934,42 @@ class MultiTable:
         
         else:
             raise ValueError("Unsupported frame_type")
+
+def concatlist(frames:list[MultiTable], engine:str) -> MultiTable:
+    """
+    Concat a list of multitable frames
+
+    Args:
+        frames (list[MultiTable]): The input list of MultiTable instances to concatenate.
+        engine (str): The engine type ("pandas", "polars", "pyspark").
+
+    Raises:
+        ValueError: If the list of frames is empty or if an unsupported engine is specified.
+        NotImplementedError: If the specified engine is not implemented.
+
+    Returns:
+        MultiTable: A new MultiTable instance containing the concatenated data.
+    """
+    if not frames:
+        raise ValueError("No frames to concatenate")
+    native_frames = [f.df for f in frames]
+
+    if engine == "pandas":
+        combined = pd.concat(native_frames, ignore_index=True)
+
+    elif engine == "polars":
+        combined = pl.concat(native_frames)
+
+    elif engine == "pyspark":
+        # Safe union across all frames
+        if len(native_frames) == 1:
+            combined = native_frames[0]
+        else:
+            combined = reduce(lambda df1, df2: df1.union(df2), native_frames)
+
+    else:
+        raise NotImplementedError(
+            f"RS400 Metaframe appendage not implemented for backend '{engine}'"
+        )
+    
+    return MultiTable(combined, src_path=frames[0].src_path, table_name=frames[0].table_name, frame_type=engine)
