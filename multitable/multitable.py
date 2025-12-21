@@ -935,7 +935,21 @@ class MultiTable:
         else:
             raise ValueError("Unsupported frame_type")
 
-def concat(frames:list[MultiTable], engine:str) -> MultiTable:
+def concatlist(frames:list[MultiTable], engine:str) -> MultiTable:
+    """
+    Concat a list of multitable frames
+
+    Args:
+        frames (list[MultiTable]): The input list of MultiTable instances to concatenate.
+        engine (str): The engine type ("pandas", "polars", "pyspark").
+
+    Raises:
+        ValueError: If the list of frames is empty or if an unsupported engine is specified.
+        NotImplementedError: If the specified engine is not implemented.
+
+    Returns:
+        MultiTable: A new MultiTable instance containing the concatenated data.
+    """
     if not frames:
         raise ValueError("No frames to concatenate")
     native_frames = [f.df for f in frames]
