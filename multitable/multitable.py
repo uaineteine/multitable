@@ -4,7 +4,7 @@ from typing import Union, List
 import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
-from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split
+from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, round as spark_round
 
 from functools import reduce
 
@@ -855,6 +855,28 @@ class MultiTable:
 
         return self
 
+    def round(self, column:str, decimals: int = 0):
+        """
+        Round numerical columns to a specified number of decimal places in-place.
+
+        Args:
+            decimals (int, optional): Number of decimal places to round to. Defaults to 0.
+        """
+        #error check
+        if column not in self.columns:
+                raise ValueError(f"MT750 Column '{column}' does not exist in the DataFrame.")
+        
+        if self.frame_type == "pandas":
+            self.df[column] = self.df[column].round(decimals)
+        elif self.frame_type == "polars":
+            self.df = self.df.with_columns(
+                pl.col(column).round(decimals).alias(column)
+            )
+        elif self.frame_type == "pyspark":
+            self.df = self.df.withColumn(
+                column, spark_round(col(column), decimals)
+            )
+    
     def sample(self, n: int = None, frac: float = None, seed: int = None):
         """
         Sample rows from the DataFrame and replace the existing DataFrame inplace.
