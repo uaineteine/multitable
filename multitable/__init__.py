@@ -12,6 +12,8 @@ from .multitable import MultiTable
 from .schema_val import SchemaValidator
 from .frame_check import FrameTypeVerifier
 
+from functools import reduce
+
 # CONSTANT PARAMETERS FOR MODULE
 
 module_version = "1.0.5.1"

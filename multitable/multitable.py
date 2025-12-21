@@ -6,8 +6,6 @@ import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
 from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, round as spark_round
 
-from functools import reduce
-
 #module imports
 from naming_standards import Tablename
 from .frame_check import FrameTypeVerifier
