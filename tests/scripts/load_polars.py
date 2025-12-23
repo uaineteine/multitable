@@ -29,7 +29,8 @@ for t in test_tables:
 
     #apply test of trimming
     print("Testing trimming of string columns...")
-    mt = mt.trimwhite()
+    for col in mt.columns:
+        mt.trimwhite()
     mt.show()
 
     #test some basic functionality
