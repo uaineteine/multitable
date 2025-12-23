@@ -34,6 +34,10 @@ for t in test_tables:
     mt_copy = mt.copy()
     mt_copy.show()
 
+    #apply test of trimming
+    print("Testing trimming of string columns...")
+    mt = mt.trim_strings()
+    mt.show()
 
     #test some basic functionality
     print("Testing conversions on frame...")
