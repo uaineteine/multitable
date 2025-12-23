@@ -4,7 +4,7 @@ from typing import Union, List
 import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
-from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, round as spark_round
+from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, round as spark_round, trim
 
 #module imports
 from naming_standards import Tablename
@@ -725,7 +725,27 @@ class MultiTable:
                 raise ValueError(f"MT600 there is no column {p} in df. Please part on existing columns only: {self.columns}")
 
         MultiTable.write_native_df(self.df, path, format, self.frame_type, overwrite, part_on=part_on, spark=spark)
-        
+
+    def trimwhite(self, column:str):
+        """
+        Trim leading and trailing whitespace from specified string columns in-place.
+
+        Args:
+            column (str): Column name to trim.
+        """
+        if self.frame_type == "pandas":
+            self.df[column] = self.df[column].str.strip()
+
+        elif self.frame_type == "polars":
+            self.df = self.df.with_columns(
+                pl.col(column).str.strip_chars().alias(column)
+            )
+
+        elif self.frame_type == "pyspark":
+            self.df = self.df.withColumn(
+                column, trim(col(column))
+            )
+
     def concat(self, new_col_name: str, columns: list, sep: str = "_"):
         """
         Concatenate multiple columns into a single column with a custom separator,
