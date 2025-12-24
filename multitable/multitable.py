@@ -515,9 +515,6 @@ class MultiTable:
         Args:
             columns (Union[str, list]): Column name or list of column names to drop.
         
-        Returns:
-            MultiTable: A new MultiTable instance with the specified columns removed.
-        
         Raises:
             ValueError: If the frame_type is unsupported.
         
