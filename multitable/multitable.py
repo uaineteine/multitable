@@ -11,6 +11,7 @@ from naming_standards import Tablename
 from .frame_check import FrameTypeVerifier
 from .load_dfs import _load_spark_df, _load_pandas_df, _load_polars_df
 from adaptiveio.pathing import normalisePaths
+from itables import show
 
 class MultiTable: 
     """
@@ -527,6 +528,33 @@ class MultiTable:
         mf = MultiTable(df, src_path=path, table_name=table_name, frame_type=frame_type)
         
         return mf
+
+    def display(self):
+        """
+        Display the DataFrame content in an interactive way.
+        
+        This method provides a unified way to display DataFrame content across different
+        frameworks. It handles the different display behaviors of PySpark, Pandas, and Polars.
+
+        Raises:
+            ValueError: If the frame_type is not supported.
+
+        Example:
+            >>> mf.display()  # Display first 20 rows
+        """
+        if self.frame_type == "pyspark":
+            self.df.display()
+        elif self.frame_type == "pandas":
+            show(self.df)
+        elif self.frame_type == "polars":
+            if self.nrow < 1000:
+                df = self.get_pandas_frame()
+                show(df)
+            else:
+                print("Interactive display unsupported for > 1000 rows via polars")
+                raise ValueError("MF981 Unsupported frame_type for display")
+        else:
+            raise ValueError("MF980 Unsupported frame_type for display")
 
     def drop(self, columns: Union[str, list]):
         """
