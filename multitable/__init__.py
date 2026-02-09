@@ -6,17 +6,19 @@ It includes functions to detect whether JAVA_HOME is set and to configure it pro
 Version:
     1.0
 """
-
-import os
 from .multitable import MultiTable
+from .schema_casting import get_data_type_for_backend, ACCEPTABLE_TYPES
 from .schema_val import SchemaValidator
 from .frame_check import FrameTypeVerifier
+
+from polars import concat as pl_concat
+from pandas import concat as pd_concat
 
 from functools import reduce
 
 # CONSTANT PARAMETERS FOR MODULE
 
-module_version = "1.1.1"
+module_version = "1.2.0"
 meta_version = "1.0"
 """str: The version number of this module.
 Used to track compatibility and changes across releases.
@@ -54,10 +56,10 @@ def concatlist(frames:list[MultiTable], engine:str) -> MultiTable:
     native_frames = [f.df for f in frames]
 
     if engine == "pandas":
-        combined = pd.concat(native_frames, ignore_index=True)
+        combined = pd_concat(native_frames, ignore_index=True)
 
     elif engine == "polars":
-        combined = pl.concat(native_frames)
+        combined = pl_concat(native_frames)
 
     elif engine == "pyspark":
         # Safe union across all frames

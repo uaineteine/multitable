@@ -6,17 +6,16 @@ the new sampling system (sampling_state.json format). It validates that loaded
 DataFrames match the expected schema defined in the dtypes field.
 """
 
+from .schema_casting import ACCEPTABLE_TYPES, get_data_type_for_backend
+
 from typing import Dict, Union
 import pandas as pd
 import polars as pl
 from pyspark.sql import DataFrame as SparkDataFrame
-from pyspark.sql.types import StringType, IntegerType, DoubleType, DateType, BooleanType
-
 
 class SchemaValidationError(Exception):
     """Exception raised when schema validation fails."""
     pass
-
 
 class SchemaValidator:
     """
@@ -25,34 +24,6 @@ class SchemaValidator:
     This class validates that loaded DataFrames conform to the expected schema
     as defined in the sampling_state.json dtypes field.
     """
-    
-    # Mapping from string type names to actual types for different frameworks
-    PYSPARK_TYPE_MAPPING = {
-        'String': StringType(),
-        'Int64': IntegerType(),
-        'Double': DoubleType(),
-        'Date': DateType(),
-        'Boolean': BooleanType(),
-        # Add more mappings as needed
-    }
-    
-    PANDAS_TYPE_MAPPING = {
-        'String': 'object',
-        'Int64': 'Int64',
-        'Double': 'float64',
-        'Date': 'datetime64[ns]',
-        'Boolean': 'bool',
-        # Add more mappings as needed
-    }
-    
-    POLARS_TYPE_MAPPING = {
-        'String': pl.Utf8,
-        'Int64': pl.Int64,
-        'Double': pl.Float64,
-        'Date': pl.Date,
-        'Boolean': pl.Boolean,
-        # Add more mappings as needed
-    }
     
     @staticmethod
     def validate_schema(df: Union[SparkDataFrame, pd.DataFrame, pl.DataFrame], 
@@ -112,8 +83,8 @@ class SchemaValidator:
         for col_name, dtype_info in expected_dtypes.items():
             if col_name in actual_columns:
                 expected_type_str = dtype_info.get('dtype_output', dtype_info.get('dtype_source'))
-                if expected_type_str in SchemaValidator.PYSPARK_TYPE_MAPPING:
-                    expected_type = SchemaValidator.PYSPARK_TYPE_MAPPING[expected_type_str]
+                if expected_type_str in ACCEPTABLE_TYPES:
+                    expected_type = get_data_type_for_backend("pyspark", expected_type_str)
                     actual_type = actual_schema[col_name]
                     
                     # For now, we'll be flexible about type checking since type inference can vary

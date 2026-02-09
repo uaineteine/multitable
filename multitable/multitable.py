@@ -11,6 +11,7 @@ from naming_standards import Tablename
 from .frame_check import FrameTypeVerifier
 from .load_dfs import _load_spark_df, _load_pandas_df, _load_polars_df
 from adaptiveio.pathing import normalisePaths
+from itables import interactive_show
 
 class MultiTable: 
     """
@@ -151,6 +152,26 @@ class MultiTable:
         """
         #JSON like string representation
         return f"MultiTable(name={self.table_name}, type={self.frame_type})"
+
+    def rename_table(self, new_name: str):
+        """
+        Rename the MultiTable's table name in place and log the event.
+
+        Args:
+            new_name (str): The new name to assign to the table.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If the new_name is empty or invalid.
+        """
+        if not new_name or not isinstance(new_name, str):
+            raise ValueError("Table name must be a non-empty string")
+
+        old_name = str(self.table_name)
+        self.table_name = Tablename(new_name)
+        # No return; operation is inplace
 
     @property
     def columns(self):
@@ -507,6 +528,33 @@ class MultiTable:
         mf = MultiTable(df, src_path=path, table_name=table_name, frame_type=frame_type)
         
         return mf
+
+    def display(self):
+        """
+        Display the DataFrame content in an interactive way.
+        
+        This method provides a unified way to display DataFrame content across different
+        frameworks. It handles the different display behaviors of PySpark, Pandas, and Polars.
+
+        Raises:
+            ValueError: If the frame_type is not supported.
+
+        Example:
+            >>> mf.display()  # Display first 20 rows
+        """
+        if self.frame_type == "pyspark":
+            self.df.display()
+        elif self.frame_type == "pandas":
+            interactive_show(self.df)
+        elif self.frame_type == "polars":
+            if self.nrow < 1000:
+                df = self.get_pandas_frame()
+                interactive_show(df)
+            else:
+                print("Interactive display unsupported for > 1000 rows via polars")
+                raise ValueError("MF981 Unsupported frame_type for display")
+        else:
+            raise ValueError("MF980 Unsupported frame_type for display")
 
     def drop(self, columns: Union[str, list]):
         """
