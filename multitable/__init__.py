@@ -9,6 +9,7 @@ Version:
 
 import os
 from .multitable import MultiTable
+from .schema_casting import get_data_type_for_backend, ACCEPTABLE_TYPES
 from .schema_val import SchemaValidator
 from .frame_check import FrameTypeVerifier
 

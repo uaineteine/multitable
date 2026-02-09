@@ -17,7 +17,6 @@ class SchemaValidationError(Exception):
     """Exception raised when schema validation fails."""
     pass
 
-
 class SchemaValidator:
     """
     Schema validator for DataFrames across different frameworks (PySpark, Pandas, Polars).
