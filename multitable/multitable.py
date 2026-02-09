@@ -11,7 +11,7 @@ from naming_standards import Tablename
 from .frame_check import FrameTypeVerifier
 from .load_dfs import _load_spark_df, _load_pandas_df, _load_polars_df
 from adaptiveio.pathing import normalisePaths
-from itables import show
+from itables import interactive_show
 
 class MultiTable: 
     """
@@ -545,11 +545,11 @@ class MultiTable:
         if self.frame_type == "pyspark":
             self.df.display()
         elif self.frame_type == "pandas":
-            show(self.df)
+            interactive_show(self.df)
         elif self.frame_type == "polars":
             if self.nrow < 1000:
                 df = self.get_pandas_frame()
-                show(df)
+                interactive_show(df)
             else:
                 print("Interactive display unsupported for > 1000 rows via polars")
                 raise ValueError("MF981 Unsupported frame_type for display")
