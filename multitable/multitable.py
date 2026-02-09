@@ -11,7 +11,7 @@ from naming_standards import Tablename
 from .frame_check import FrameTypeVerifier
 from .load_dfs import _load_spark_df, _load_pandas_df, _load_polars_df
 from adaptiveio.pathing import normalisePaths
-from itables import interactive_show
+from itables import show as interactive_show
 
 class MultiTable: 
     """
