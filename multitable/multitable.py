@@ -152,6 +152,26 @@ class MultiTable:
         #JSON like string representation
         return f"MultiTable(name={self.table_name}, type={self.frame_type})"
 
+    def rename_table(self, new_name: str):
+        """
+        Rename the MultiTable's table name in place and log the event.
+
+        Args:
+            new_name (str): The new name to assign to the table.
+
+        Returns:
+            None
+
+        Raises:
+            ValueError: If the new_name is empty or invalid.
+        """
+        if not new_name or not isinstance(new_name, str):
+            raise ValueError("Table name must be a non-empty string")
+
+        old_name = str(self.table_name)
+        self.table_name = Tablename(new_name)
+        # No return; operation is inplace
+
     @property
     def columns(self):
         """
