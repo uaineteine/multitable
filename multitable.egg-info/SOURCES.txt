@@ -3,6 +3,7 @@ multitable/__init__.py
 multitable/frame_check.py
 multitable/load_dfs.py
 multitable/multitable.py
+multitable/schema_casting.py
 multitable/schema_val.py
 multitable.egg-info/PKG-INFO
 multitable.egg-info/SOURCES.txt

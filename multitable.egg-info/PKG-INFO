@@ -11,6 +11,7 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: polars
 Requires-Dist: tabulate
+Requires-Dist: itables
 Requires-Dist: pandas
 Requires-Dist: pyspark
 Requires-Dist: polars-readstat
