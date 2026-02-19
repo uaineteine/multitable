@@ -692,29 +692,36 @@ class MultiTable:
             if frame_type == "pyspark":
                 if spark is None:
                     raise ValueError("MT205 SparkSession required for PySpark")
-                
-                target_size = os.environ.get("TNSFRMS_TAR_PART_SIZE", 1024*1024*256)  # Default to 256MB
-                spark.conf.set("spark.sql.files.maxPartitionBytes", target_size)  # TARGET SIZE
 
+                #TODO - options as an argument for write
+
+                #TODO - hook up the target size
+                target_size = os.environ.get("TNSFRMS_TAR_PART_SIZE", 1024*1024*256)  # Default to 256MB
+
+                #set row limit per file
+                #TODO - hook up the target size, unlimited for now
+                row_limit_per_file = 0
+
+                #TODO fix flexibility of overwrite step
                 mode = "overwrite" if overwrite else "error"
 
                 print(f"Writing to {path} as {format} with mode={mode} (compression=zstd)")
                 
                 if format == "parquet":
                     if part_on != []:
-                        dataframe.write.mode(mode).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
                     else:
-                        dataframe.write.mode(mode).option("compression", "zstd").format(format).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).save(path)
                 elif format == "delta":
                     if part_on != []:
-                        dataframe.write.mode(mode).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
                     else:
-                        dataframe.write.mode(mode).option("compression", "zstd").format(format).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).save(path)
                 else:
                     if part_on != []:
                         raise ValueError("MT400 parting dataset not supported on this format: {format}")
                     else:
-                        dataframe.write.mode(mode).format(format).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).format(format).save(path)
 
             elif frame_type == "pandas":
                 if part_on != []:
@@ -997,3 +1004,73 @@ class MultiTable:
         
         else:
             raise ValueError("Unsupported frame_type")
+
+    
+    def validate_numeric_column(self, column_name: str) -> bool:
+        """
+        Validate that the target column is numeric.
+
+        Args:
+            column_name: Name of the column to check.
+
+        Returns a boolean indicating whether the column is numeric.
+        """
+
+        if self.frame_type == "pandas":
+            if not pd.api.types.is_numeric_dtype(self.df[column_name]):
+                print("MT721 Column data type:", self.df[column_name].dtype)
+                return False
+
+        elif self.frame_type == "polars":
+            col_dtype = self.df.schema[column_name]
+            numeric_types = {pl.Float32, pl.Float64, pl.Int8, pl.Int16, pl.Int32, pl.Int64, 
+                           pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64}
+            if col_dtype not in numeric_types:
+                print("MT721 Column data type:", col_dtype)
+                return False
+
+        elif self.frame_type == "pyspark":
+            dtype_str = self.dtypes.get(column_name, "")
+            numeric_dtypes = {'DoubleType()', 'FloatType()', 'IntegerType()', 'LongType()', 
+                            'ShortType()', 'ByteType()', 'DecimalType()'}
+            if dtype_str not in numeric_dtypes:
+                print("MT721 Column data type:", dtype_str)
+                return False
+        
+        #important to return true if validation passes
+        return True
+    
+    def get_values_to_list(self, column_name: str, remove_nulls:bool=False) -> List:
+        """
+        Extract non-null values from the column and return them sorted ascending
+
+        Args:
+            column_name: Name of the column
+            remove_nulls: Whether to remove null values from the list. Defaults to False
+
+        Returns:
+            list: list of values
+        """
+        #intialise return list
+        values = []
+
+        if remove_nulls:
+            if self.frame_type == "pandas":
+                values = self.df[column_name].dropna().tolist()
+            elif self.frame_type == "polars":
+                values = self.df.select(pl.col(column_name)).drop_nulls().to_series().to_list()
+            elif self.frame_type == "pyspark":
+                values = [row[0] for row in self.df.select(column_name).dropna().collect()]
+            else:
+                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for TopBottomNCoding")
+        elif not remove_nulls:
+            if self.frame_type == "pandas":
+                values = self.df[column_name].tolist()
+            elif self.frame_type == "polars":
+                values = self.df.select(pl.col(column_name)).to_series().to_list()
+            elif self.frame_type == "pyspark":
+                values = [row[0] for row in self.df.select(column_name).collect()]
+            else:
+                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for TopBottomNCoding")
+
+        return values
