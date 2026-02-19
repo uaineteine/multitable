@@ -692,6 +692,8 @@ class MultiTable:
             if frame_type == "pyspark":
                 if spark is None:
                     raise ValueError("MT205 SparkSession required for PySpark")
+
+                #TODO - options as an argument for write
                 
                 target_size = os.environ.get("TNSFRMS_TAR_PART_SIZE", 1024*1024*256)  # Default to 256MB
                 spark.conf.set("spark.sql.files.maxPartitionBytes", target_size)  # TARGET SIZE
