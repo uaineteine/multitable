@@ -694,29 +694,34 @@ class MultiTable:
                     raise ValueError("MT205 SparkSession required for PySpark")
 
                 #TODO - options as an argument for write
-                
-                target_size = os.environ.get("TNSFRMS_TAR_PART_SIZE", 1024*1024*256)  # Default to 256MB
-                spark.conf.set("spark.sql.files.maxPartitionBytes", target_size)  # TARGET SIZE
 
+                #TODO - hook up the target size
+                target_size = os.environ.get("TNSFRMS_TAR_PART_SIZE", 1024*1024*256)  # Default to 256MB
+
+                #set row limit per file
+                #TODO - hook up the target size, unlimited for now
+                row_limit_per_file = 0
+
+                #TODO fix flexibility of overwrite step
                 mode = "overwrite" if overwrite else "error"
 
                 print(f"Writing to {path} as {format} with mode={mode} (compression=zstd)")
                 
                 if format == "parquet":
                     if part_on != []:
-                        dataframe.write.mode(mode).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
                     else:
-                        dataframe.write.mode(mode).option("compression", "zstd").format(format).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).save(path)
                 elif format == "delta":
                     if part_on != []:
-                        dataframe.write.mode(mode).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
                     else:
-                        dataframe.write.mode(mode).option("compression", "zstd").format(format).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).save(path)
                 else:
                     if part_on != []:
                         raise ValueError("MT400 parting dataset not supported on this format: {format}")
                     else:
-                        dataframe.write.mode(mode).format(format).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).format(format).save(path)
 
             elif frame_type == "pandas":
                 if part_on != []:
