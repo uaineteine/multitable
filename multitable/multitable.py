@@ -4,7 +4,7 @@ from typing import Union, List
 import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
-from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, round as spark_round, trim
+from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, round as spark_round, trim, regexp_replace
 
 #module imports
 from naming_standards import Tablename
@@ -253,6 +253,43 @@ class MultiTable:
             return self.df.select(pl.count()).collect().item()
         else:
             raise ValueError("Unsupported frame_type")
+
+    def remove_character(self, col_to_alter:str, val_to_remove:str, index:str):
+        """
+        Method to remove characters from a column in a MultiTable. This is used by the transforms method to apply the transformation to the appropriate backend.
+
+        Args:
+            col_to_alter (str): The name of the column to alter
+            val_to_remove (str): The character(s) to remove from the column values
+            index (str): "all" to remove all occurrences, "left" to remove only if it's the first character, "right" to remove only if it's the last character.
+        """
+        col_type = self.dtypes[col_to_alter]
+        backend = self.frame_type
+
+        if backend == "pyspark":
+            # If var_to_alter is not of StringType, the original DataFrame gets returned
+            if self.dtypes[col_to_alter] != 'StringType()':
+                raise KeyError(f"MT630 Column '{col_to_alter}' is of type '{col_type}' which is not a string type, cannot remove characters. Please check your column name and types.")
+
+            if index == "all":
+                # Remove all occurrences of val_to_remove
+                self.df = self.df.withColumn(col_to_alter, regexp_replace(col(col_to_alter), val_to_remove, ""))
+                print(f"Removed all occurances of {val_to_remove} from {col_to_alter}")
+
+            elif index == "left":
+                # Remove val_to_remove if its the first occurrence in the string
+                self.df = self.df.withColumn(col_to_alter, regexp_replace(col(col_to_alter), f"^{val_to_remove}+", ""))
+                print(f"Removed the first occurance of {val_to_remove} from {col_to_alter}")
+
+            elif index == "right":
+                # Remove val_to_remove if its the last occurrence in the string
+                self.df = self.df.withColumn(col_to_alter, regexp_replace(col(col_to_alter), f"({val_to_remove})+$", ""))
+                print(f"Removed the last occurance of {val_to_remove} from {col_to_alter}")
+
+            else:
+                raise ValueError("MT632 index must be 'all', 'left' or 'right'")
+        else:
+            raise NotImplementedError(f"MT631 RemoveCharacters not implemented for backend '{backend}'")
 
     def get_pandas_frame(self) -> pd.DataFrame:
         """
