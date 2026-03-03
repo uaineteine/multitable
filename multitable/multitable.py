@@ -738,6 +738,9 @@ class MultiTable:
                 #set row limit per file
                 #TODO - hook up the target size, unlimited for now
                 row_limit_per_file = 0
+                
+                #TODO - hook up with target size
+                repart_no = 2
 
                 #TODO fix flexibility of overwrite step
                 mode = "overwrite" if overwrite else "error"
@@ -746,14 +749,14 @@ class MultiTable:
                 
                 if format == "parquet":
                     if part_on != []:
-                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
+                        dataframe.repartition(repart_no).write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
                     else:
-                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).save(path)
+                        dataframe.repartition(repart_no).write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).save(path)
                 elif format == "delta":
                     if part_on != []:
-                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
+                        dataframe.repartition(repart_no).write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
                     else:
-                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).save(path)
+                        dataframe.repartition(repart_no).write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).save(path)
                 else:
                     if part_on != []:
                         raise ValueError("MT400 parting dataset not supported on this format: {format}")
