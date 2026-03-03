@@ -4,7 +4,7 @@ from typing import Union, List
 import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
-from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, round as spark_round, trim
+from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, round as spark_round, trim, regexp_replace
 
 #module imports
 from naming_standards import Tablename
@@ -253,6 +253,43 @@ class MultiTable:
             return self.df.select(pl.count()).collect().item()
         else:
             raise ValueError("Unsupported frame_type")
+
+    def remove_character(self, col_to_alter:str, val_to_remove:str, index:str):
+        """
+        Method to remove characters from a column in a MultiTable. This is used by the transforms method to apply the transformation to the appropriate backend.
+
+        Args:
+            col_to_alter (str): The name of the column to alter
+            val_to_remove (str): The character(s) to remove from the column values
+            index (str): "all" to remove all occurrences, "left" to remove only if it's the first character, "right" to remove only if it's the last character.
+        """
+        col_type = self.dtypes[col_to_alter]
+        backend = self.frame_type
+
+        if backend == "pyspark":
+            # If var_to_alter is not of StringType, the original DataFrame gets returned
+            if self.dtypes[col_to_alter] != 'StringType()':
+                raise KeyError(f"MT630 Column '{col_to_alter}' is of type '{col_type}' which is not a string type, cannot remove characters. Please check your column name and types.")
+
+            if index == "all":
+                # Remove all occurrences of val_to_remove
+                self.df = self.df.withColumn(col_to_alter, regexp_replace(col(col_to_alter), val_to_remove, ""))
+                print(f"Removed all occurances of {val_to_remove} from {col_to_alter}")
+
+            elif index == "left":
+                # Remove val_to_remove if its the first occurrence in the string
+                self.df = self.df.withColumn(col_to_alter, regexp_replace(col(col_to_alter), f"^{val_to_remove}+", ""))
+                print(f"Removed the first occurance of {val_to_remove} from {col_to_alter}")
+
+            elif index == "right":
+                # Remove val_to_remove if its the last occurrence in the string
+                self.df = self.df.withColumn(col_to_alter, regexp_replace(col(col_to_alter), f"({val_to_remove})+$", ""))
+                print(f"Removed the last occurance of {val_to_remove} from {col_to_alter}")
+
+            else:
+                raise ValueError("MT632 index must be 'all', 'left' or 'right'")
+        else:
+            raise NotImplementedError(f"MT631 RemoveCharacters not implemented for backend '{backend}'")
 
     def get_pandas_frame(self) -> pd.DataFrame:
         """
@@ -692,29 +729,36 @@ class MultiTable:
             if frame_type == "pyspark":
                 if spark is None:
                     raise ValueError("MT205 SparkSession required for PySpark")
-                
-                target_size = os.environ.get("TNSFRMS_TAR_PART_SIZE", 1024*1024*256)  # Default to 256MB (million)
-                spark.conf.set("spark.sql.files.maxPartitionBytes", target_size)  # TARGET SIZE
 
+                #TODO - options as an argument for write
+
+                #TODO - hook up the target size
+                target_size = os.environ.get("TNSFRMS_TAR_PART_SIZE", 1024*1024*256)  # Default to 256MB
+
+                #set row limit per file
+                #TODO - hook up the target size, unlimited for now
+                row_limit_per_file = 0
+
+                #TODO fix flexibility of overwrite step
                 mode = "overwrite" if overwrite else "error"
 
                 print(f"Writing to {path} as {format} with mode={mode} (compression=zstd)")
                 
                 if format == "parquet":
                     if part_on != []:
-                        dataframe.write.mode(mode).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
                     else:
-                        dataframe.write.mode(mode).option("compression", "zstd").format(format).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).save(path)
                 elif format == "delta":
                     if part_on != []:
-                        dataframe.write.mode(mode).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).partitionBy(part_on).save(path)
                     else:
-                        dataframe.write.mode(mode).option("compression", "zstd").format(format).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).option("compression", "zstd").format(format).save(path)
                 else:
                     if part_on != []:
                         raise ValueError("MT400 parting dataset not supported on this format: {format}")
                     else:
-                        dataframe.write.mode(mode).format(format).save(path)
+                        dataframe.write.mode(mode).option("maxRecordsPerFile", row_limit_per_file).format(format).save(path)
 
             elif frame_type == "pandas":
                 if part_on != []:
@@ -997,3 +1041,73 @@ class MultiTable:
         
         else:
             raise ValueError("Unsupported frame_type")
+
+    
+    def validate_numeric_column(self, column_name: str) -> bool:
+        """
+        Validate that the target column is numeric.
+
+        Args:
+            column_name: Name of the column to check.
+
+        Returns a boolean indicating whether the column is numeric.
+        """
+
+        if self.frame_type == "pandas":
+            if not pd.api.types.is_numeric_dtype(self.df[column_name]):
+                print("MT721 Column data type:", self.df[column_name].dtype)
+                return False
+
+        elif self.frame_type == "polars":
+            col_dtype = self.df.schema[column_name]
+            numeric_types = {pl.Float32, pl.Float64, pl.Int8, pl.Int16, pl.Int32, pl.Int64, 
+                           pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64}
+            if col_dtype not in numeric_types:
+                print("MT721 Column data type:", col_dtype)
+                return False
+
+        elif self.frame_type == "pyspark":
+            dtype_str = self.dtypes.get(column_name, "")
+            numeric_dtypes = {'DoubleType()', 'FloatType()', 'IntegerType()', 'LongType()', 
+                            'ShortType()', 'ByteType()', 'DecimalType()'}
+            if dtype_str not in numeric_dtypes:
+                print("MT721 Column data type:", dtype_str)
+                return False
+        
+        #important to return true if validation passes
+        return True
+    
+    def get_values_to_list(self, column_name: str, remove_nulls:bool=False) -> List:
+        """
+        Extract non-null values from the column and return them sorted ascending
+
+        Args:
+            column_name: Name of the column
+            remove_nulls: Whether to remove null values from the list. Defaults to False
+
+        Returns:
+            list: list of values
+        """
+        #intialise return list
+        values = []
+
+        if remove_nulls:
+            if self.frame_type == "pandas":
+                values = self.df[column_name].dropna().tolist()
+            elif self.frame_type == "polars":
+                values = self.df.select(pl.col(column_name)).drop_nulls().to_series().to_list()
+            elif self.frame_type == "pyspark":
+                values = [row[0] for row in self.df.select(column_name).dropna().collect()]
+            else:
+                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for TopBottomNCoding")
+        elif not remove_nulls:
+            if self.frame_type == "pandas":
+                values = self.df[column_name].tolist()
+            elif self.frame_type == "polars":
+                values = self.df.select(pl.col(column_name)).to_series().to_list()
+            elif self.frame_type == "pyspark":
+                values = [row[0] for row in self.df.select(column_name).collect()]
+            else:
+                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for TopBottomNCoding")
+
+        return values
