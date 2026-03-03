@@ -693,7 +693,7 @@ class MultiTable:
                 if spark is None:
                     raise ValueError("MT205 SparkSession required for PySpark")
                 
-                target_size = os.environ.get("TNSFRMS_TAR_PART_SIZE", 1024*1024*256)  # Default to 256MB
+                target_size = os.environ.get("TNSFRMS_TAR_PART_SIZE", 1024*1024*256)  # Default to 256MB (million)
                 spark.conf.set("spark.sql.files.maxPartitionBytes", target_size)  # TARGET SIZE
 
                 mode = "overwrite" if overwrite else "error"
