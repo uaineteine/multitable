@@ -250,7 +250,10 @@ class MultiTable:
         elif self.frame_type == "pandas":
             return len(self.df)
         elif self.frame_type == "polars":
-            return self.df.select(pl.count()).collect().item()
+            if isinstance(self.df, pl.LazyFrame):
+                return self.df.select(pl.count()).collect().item()
+            else:
+                return len(self.df)
         else:
             raise ValueError("Unsupported frame_type")
 
@@ -315,7 +318,10 @@ class MultiTable:
             print("WARNING: Unoptimised code, DataFrame is already a Pandas DataFrame.")
             return self.df
         elif self.frame_type == "polars":
-            return self.df.collect().to_pandas()
+            if isinstance(self.df, pl.LazyFrame):
+                return self.df.collect().to_pandas()
+            else:
+                return self.df.to_pandas()
         else:
             raise ValueError("Unsupported frame_type")
 
@@ -453,8 +459,10 @@ class MultiTable:
             print(self.df.head(n))
         elif self.frame_type == "polars":
             print(f"MultiTable: {self.table_name} ({self.frame_type})")
-            # For Polars LazyFrame, we need to collect first
-            collected_df = self.df.collect()
+            if isinstance(self.df, pl.LazyFrame):
+                collected_df = self.df.collect()
+            else:
+                collected_df = self.df
             print(f"Shape: {collected_df.shape[0]} rows × {collected_df.shape[1]} columns")
             print(collected_df.head(n))
         else:
@@ -1119,7 +1127,10 @@ class MultiTable:
             if self.frame_type == "pandas":
                 values = self.df[column_name].dropna().tolist()
             elif self.frame_type == "polars":
-                values = self.df.select(pl.col(column_name)).collect().drop_nulls().to_series().to_list()
+                sel = self.df.select(pl.col(column_name))
+                if isinstance(sel, pl.LazyFrame):
+                    sel = sel.collect()
+                values = sel.drop_nulls().to_series().to_list()
             elif self.frame_type == "pyspark":
                 values = [row[0] for row in self.df.select(column_name).dropna().collect()]
             else:
@@ -1128,7 +1139,10 @@ class MultiTable:
             if self.frame_type == "pandas":
                 values = self.df[column_name].tolist()
             elif self.frame_type == "polars":
-                values = self.df.select(pl.col(column_name)).collect().to_series().to_list()
+                sel = self.df.select(pl.col(column_name))
+                if isinstance(sel, pl.LazyFrame):
+                    sel = sel.collect()
+                values = sel.to_series().to_list()
             elif self.frame_type == "pyspark":
                 values = [row[0] for row in self.df.select(column_name).collect()]
             else:
