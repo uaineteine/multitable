@@ -1,9 +1,11 @@
 import os
 import re
+from math import ceil
 from typing import Union, List
 import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
+from pyspark.sql.types import ByteType, BooleanType, ShortType, IntegerType, FloatType, LongType, DoubleType, TimestampType, DecimalType, StringType, BinaryType, DateType, ArrayType, MapType, StructType
 from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, round as spark_round, trim, regexp_replace
 
 #module imports
@@ -12,6 +14,45 @@ from .frame_check import FrameTypeVerifier
 from .load_dfs import _load_spark_df, _load_pandas_df, _load_polars_df
 from adaptiveio.pathing import normalisePaths
 from itables import show as interactive_show
+
+def spark_size_per_type(dtype) -> int:
+    """
+    Function to return an estimate size for a data type in use by the user
+    """
+    
+    spark_sizes = {
+        ByteType: 8,
+        BooleanType: 1,
+        ShortType: 16,
+        IntegerType: 32,
+        FloatType: 32,
+        DateType: 32,
+        LongType: 64,
+        DoubleType: 64,
+        TimestampType: 64,
+        DecimalType: 16,
+        StringType: 32*8,
+        BinaryType: 64,
+    }
+    
+    for spark_type, size in spark_sizes.items():
+        if isinstance(dtype, spark_type):
+            return size
+    #implied else
+    
+    #iterative and composites types
+    if isinstance(dtype, ArrayType):
+        return spark_size_per_type(dtype.elementType) * 80
+    
+    if isinstance(dtype, MapType):
+        return spark_size_per_type(dtype.elementType) * 80
+    
+    if isinstance(dtype, StructType):
+        return sum(spark_size_per_type(f.dataTye) for f in dtype.fields)
+         
+    #unkown raise warning - else
+    print(f"MT925 cannot estimate datatype of {dtype}. Defaulting to 256 bits for item")
+    return 256
 
 class MultiTable: 
     """
@@ -1009,6 +1050,42 @@ class MultiTable:
             self.df = self.df.sample(withReplacement=False, fraction=frac, seed=seed)
         else:
             raise NotImplementedError(f"Sampling not supported for frame type {self.frame_type}")
+    
+    def estimate_frame_size(self, output_format:str="bits") -> int:
+        """
+        Estimate the multitable frame size based on rows
+
+        Args:
+            output_format (str). bits or bytes. defaults to 'bits'.
+        
+        Returns:
+            int: the dataframe size in bits
+        """
+        if output_format not in ["bits", "bytes"]:
+            raise ValueError("MT400 invalid argument: output_format. This can only be 'bits' or 'bytes'")
+        
+        #init
+        value = -1
+        
+        if self.frame_type == "polars":
+            value = self.df.estimated_size() * 8
+            
+        elif self.frame_type == "pandas":
+            value = self.df.memory_usage(deep=True).sum() * 8
+            
+        elif self.frame_type == "pyspark":
+            n = self.nrow
+            schema = self.df.schema
+            total = 0
+            for field in schema.fields:
+                total += spark_size_per_type(field.dataType)
+            value = total * 8
+
+        #return bits or bytes
+        if output_format == "bytes":
+            return ceil(value / 8)
+        else:
+            return value
     
     @property
     def dtypes(self) -> dict:
