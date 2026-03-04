@@ -1037,7 +1037,31 @@ class MultiTable:
         else:
             raise ValueError("Unsupported frame_type")
 
-    
+    @property
+    def schema(self) -> dict:
+        """
+        Get native data types of each column (not stringified).
+
+        Returns:
+            dict: Column names mapped to native type objects.
+                  - pandas: numpy dtype objects
+                  - polars: pl.DataType objects (pl.Int64, pl.Utf8, etc.)
+                  - pyspark: pyspark DataType objects (IntegerType(), StringType(), etc.)
+
+        Example:
+            >>> mt.schema
+            {'age': pl.Int64, 'name': pl.Utf8}  # polars
+            {'age': IntegerType(), 'name': StringType()}  # pyspark
+        """
+        if self.frame_type == "pandas":
+            return self.df.dtypes.to_dict()
+        elif self.frame_type == "polars":
+            return dict(self.df.schema)
+        elif self.frame_type == "pyspark":
+            return {field.name: field.dataType for field in self.df.schema.fields}
+        else:
+            raise ValueError("Unsupported frame_type")
+
     def validate_numeric_column(self, column_name: str) -> bool:
         """
         Validate that the target column is numeric.
@@ -1057,7 +1081,7 @@ class MultiTable:
             col_dtype = self.df.schema[column_name]
             numeric_types = {pl.Float32, pl.Float64, pl.Int8, pl.Int16, pl.Int32, pl.Int64, 
                            pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64}
-            if col_dtype not in numeric_types:
+            if col_dtype not in numeric_types and not isinstance(col_dtype, pl.Decimal):
                 print("MT721 Column data type:", col_dtype)
                 return False
 
@@ -1072,37 +1096,101 @@ class MultiTable:
         #important to return true if validation passes
         return True
     
-    def get_values_to_list(self, column_name: str, remove_nulls:bool=False) -> List:
+    def get_values_to_list(self, column_name: str, remove_nulls: bool=False) -> List:
         """
-        Extract non-null values from the column and return them sorted ascending
+        Extract values from a column and return them as a sorted Python list.
 
         Args:
-            column_name: Name of the column
-            remove_nulls: Whether to remove null values from the list. Defaults to False
+            column_name: Name of the column.
+            remove_nulls: Whether to remove null values from the list. Defaults to False.
 
         Returns:
-            list: list of values
+            list: Sorted list of values from the column.
         """
-        #intialise return list
         values = []
+
+        # Warn on large PySpark collects
+        if self.frame_type == "pyspark":
+            row_count = self.df.count()
+            if row_count > 50000:
+                print(f"MT730 Warning: get_values_to_list is collecting {row_count} rows into driver memory. This may be slow or cause OOM for large datasets.")
 
         if remove_nulls:
             if self.frame_type == "pandas":
                 values = self.df[column_name].dropna().tolist()
             elif self.frame_type == "polars":
-                values = self.df.select(pl.col(column_name)).drop_nulls().to_series().to_list()
+                values = self.df.select(pl.col(column_name)).collect().drop_nulls().to_series().to_list()
             elif self.frame_type == "pyspark":
                 values = [row[0] for row in self.df.select(column_name).dropna().collect()]
             else:
-                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for TopBottomNCoding")
-        elif not remove_nulls:
+                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for get_values_to_list")
+        else:
             if self.frame_type == "pandas":
                 values = self.df[column_name].tolist()
             elif self.frame_type == "polars":
-                values = self.df.select(pl.col(column_name)).to_series().to_list()
+                values = self.df.select(pl.col(column_name)).collect().to_series().to_list()
             elif self.frame_type == "pyspark":
                 values = [row[0] for row in self.df.select(column_name).collect()]
             else:
-                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for TopBottomNCoding")
+                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for get_values_to_list")
 
+        values.sort()
         return values
+
+    def validate_string_column(self, column_name: str) -> bool:
+        """
+        Validate that the target column is a string type.
+
+        Args:
+            column_name: Name of the column to check.
+
+        Returns:
+            bool: True if column is string type, False otherwise.
+        """
+        if self.frame_type == "pandas":
+            if not pd.api.types.is_string_dtype(self.df[column_name]):
+                print("MT722 Column data type:", self.df[column_name].dtype)
+                return False
+
+        elif self.frame_type == "polars":
+            col_dtype = self.df.schema[column_name]
+            if col_dtype != pl.Utf8:
+                print("MT722 Column data type:", col_dtype)
+                return False
+
+        elif self.frame_type == "pyspark":
+            dtype_str = self.dtypes.get(column_name, "")
+            if dtype_str != 'StringType()':
+                print("MT722 Column data type:", dtype_str)
+                return False
+
+        return True
+
+    def validate_datetime_column(self, column_name: str) -> bool:
+        """
+        Validate that the target column is a date or datetime type.
+
+        Args:
+            column_name: Name of the column to check.
+
+        Returns:
+            bool: True if column is date/datetime type, False otherwise.
+        """
+        if self.frame_type == "pandas":
+            if not pd.api.types.is_datetime64_any_dtype(self.df[column_name]):
+                print("MT723 Column data type:", self.df[column_name].dtype)
+                return False
+
+        elif self.frame_type == "polars":
+            col_dtype = self.df.schema[column_name]
+            if col_dtype not in {pl.Date, pl.Datetime}:
+                print("MT723 Column data type:", col_dtype)
+                return False
+
+        elif self.frame_type == "pyspark":
+            dtype_str = self.dtypes.get(column_name, "")
+            if dtype_str not in {'TimestampType()', 'DateType()'}:
+                print("MT723 Column data type:", dtype_str)
+                return False
+
+        return True
