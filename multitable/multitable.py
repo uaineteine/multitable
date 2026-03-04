@@ -721,7 +721,7 @@ class MultiTable:
             return MultiTable(new_df, src_path=self.src_path, table_name=str(self.table_name), frame_type=self.frame_type)
 
     @staticmethod
-    def write_native_df(dataframe, path:str, format: str = "parquet", frame_type: str = FrameTypeVerifier.pyspark, overwrite: bool = True, part_on:list[str]=[], spark=None):
+    def write_native_df(dataframe, path:str, format: str = "parquet", frame_type: str = FrameTypeVerifier.pyspark, overwrite: bool = True, repart_no:int=2, part_on:list[str]=[], spark=None):
         """
         Write a DataFrame to a file in the specified format.
         """
@@ -730,17 +730,9 @@ class MultiTable:
                 if spark is None:
                     raise ValueError("MT205 SparkSession required for PySpark")
 
-                #TODO - options as an argument for write
+                #options as an argument for write
 
-                #TODO - hook up the target size
-                target_size = os.environ.get("TNSFRMS_TAR_PART_SIZE", 1024*1024*256)  # Default to 256MB
-
-                #set row limit per file
-                #TODO - hook up the target size, unlimited for now
                 row_limit_per_file = 0
-                
-                #TODO - hook up with target size
-                repart_no = 2
 
                 #TODO fix flexibility of overwrite step
                 mode = "overwrite" if overwrite else "error"
