@@ -56,6 +56,9 @@ for t in test_tables:
     print("Testing polars conversion")
     pl_df = mt.get_polars_lazy_frame()
     pl_df.head()
+    
+    print("Testing the size estimates")
+    print(f"The df is an estimated {mt.estimate_frame_size() / (1024*8)} KB")
 
     mt.write(f"../test_tables/test_outputs/spark/{os.path.basename(t)}.parquet", "parquet", spark=spark)
     
