@@ -1109,8 +1109,9 @@ class MultiTable:
             ValueError: If the frame_type is unsupported.
 
         Example:
-            >>> mt.dtypes
-            {'col1': 'int64', 'col2': 'string', ...}
+            >>> mt.schema
+            {'age': pl.Int64, 'name': pl.Utf8}  # polars
+            {'age': IntegerType(), 'name': StringType()}  # pyspark
         """
         if self.frame_type == "pandas":
             return self.df.dtypes.apply(lambda dtype: dtype.name).to_dict()
@@ -1122,32 +1123,14 @@ class MultiTable:
             return {field.name: str(field.dataType) for field in self.df.schema.fields}
         
         else:
-            raise ValueError("Unsupported frame_type")
+            raise ValueError("MT200 Unsupported frame_type")
 
     @property
     def schema(self) -> dict:
         """
-        Get native data types of each column (not stringified).
-
-        Returns:
-            dict: Column names mapped to native type objects.
-                  - pandas: numpy dtype objects
-                  - polars: pl.DataType objects (pl.Int64, pl.Utf8, etc.)
-                  - pyspark: pyspark DataType objects (IntegerType(), StringType(), etc.)
-
-        Example:
-            >>> mt.schema
-            {'age': pl.Int64, 'name': pl.Utf8}  # polars
-            {'age': IntegerType(), 'name': StringType()}  # pyspark
+        Alias for dtypes
         """
-        if self.frame_type == "pandas":
-            return self.df.dtypes.to_dict()
-        elif self.frame_type == "polars":
-            return dict(self.df.schema)
-        elif self.frame_type == "pyspark":
-            return {field.name: field.dataType for field in self.df.schema.fields}
-        else:
-            raise ValueError("Unsupported frame_type")
+        return self.dtypes
 
     def validate_numeric_column(self, column_name: str) -> bool:
         """
