@@ -500,12 +500,7 @@ class MultiTable:
             print(self.df.head(n))
         elif self.frame_type == "polars":
             print(f"MultiTable: {self.table_name} ({self.frame_type})")
-            if isinstance(self.df, pl.LazyFrame):
-                collected_df = self.df.collect()
-            else:
-                collected_df = self.df
-            print(f"Shape: {collected_df.shape[0]} rows × {collected_df.shape[1]} columns")
-            print(collected_df.head(n))
+            print(self.df.head(n))
         else:
             raise ValueError("Unsupported frame_type")
     
@@ -1078,7 +1073,12 @@ class MultiTable:
         value = -1
         
         if self.frame_type == "polars":
-            value = self.df.estimated_size() * 8
+            if isinstance(self.df, pl.LazyFrame):
+                col = self.df.collect()
+                value = col.estimated_size()
+            else:
+                value = self.df.estimated_size()
+            value = value * 8
             
         elif self.frame_type == "pandas":
             value = self.df.memory_usage(deep=True).sum() * 8
