@@ -291,7 +291,10 @@ class MultiTable:
         elif self.frame_type == "pandas":
             return len(self.df)
         elif self.frame_type == "polars":
-            return self.df.select(pl.count()).collect().item()
+            if isinstance(self.df, pl.LazyFrame):
+                return self.df.select(pl.count()).collect().item()
+            else:
+                return len(self.df)
         else:
             raise ValueError("Unsupported frame_type")
 
@@ -356,7 +359,10 @@ class MultiTable:
             print("WARNING: Unoptimised code, DataFrame is already a Pandas DataFrame.")
             return self.df
         elif self.frame_type == "polars":
-            return self.df.collect().to_pandas()
+            if isinstance(self.df, pl.LazyFrame):
+                return self.df.collect().to_pandas()
+            else:
+                return self.df.to_pandas()
         else:
             raise ValueError("Unsupported frame_type")
 
@@ -494,10 +500,7 @@ class MultiTable:
             print(self.df.head(n))
         elif self.frame_type == "polars":
             print(f"MultiTable: {self.table_name} ({self.frame_type})")
-            # For Polars LazyFrame, we need to collect first
-            collected_df = self.df.collect()
-            print(f"Shape: {collected_df.shape[0]} rows × {collected_df.shape[1]} columns")
-            print(collected_df.head(n))
+            print(self.df.head(n))
         else:
             raise ValueError("Unsupported frame_type")
     
@@ -762,7 +765,7 @@ class MultiTable:
             return MultiTable(new_df, src_path=self.src_path, table_name=str(self.table_name), frame_type=self.frame_type)
 
     @staticmethod
-    def write_native_df(dataframe, path:str, format: str = "parquet", frame_type: str = FrameTypeVerifier.pyspark, overwrite: bool = True, repart_no:int=2, part_on:list[str]=[], spark=None):
+    def write_native_df(dataframe, path:str, format: str = "parquet", frame_type: str = FrameTypeVerifier.pyspark, overwrite: bool = True, repart_no:int=4, part_on:list[str]=[], spark=None):
         """
         Write a DataFrame to a file in the specified format.
         """
@@ -820,7 +823,7 @@ class MultiTable:
         except Exception as e:
             print(f"MT800 cannot write file out. PATH {path} FORMAT {format}. EXCEPTION {e}")
 
-    def write(self, path:str, format: str = "parquet", overwrite: bool = True, part_on:list[str]=[], spark=None):
+    def write(self, path:str, format: str = "parquet", overwrite: bool = True, repart_no:int=4, part_on:list[str]=[], spark=None):
         """
         Write the DataFrame to a file in the specified format.
 
@@ -832,6 +835,8 @@ class MultiTable:
             File format to write. Defaults to "parquet". Supported formats: "parquet", "csv", "sas" (for PySpark).
         overwrite : bool, optional
             If True, overwrites existing files. Defaults to True.
+        repart_no: int, optional
+            If set, will create the number of target parts to output
         part_on: list, optional
             If set, the outputs via an engine will be parted (if supported)
         spark : optional
@@ -1068,7 +1073,12 @@ class MultiTable:
         value = -1
         
         if self.frame_type == "polars":
-            value = self.df.estimated_size() * 8
+            if isinstance(self.df, pl.LazyFrame):
+                col = self.df.collect()
+                value = col.estimated_size()
+            else:
+                value = self.df.estimated_size()
+            value = value * 8
             
         elif self.frame_type == "pandas":
             value = self.df.memory_usage(deep=True).sum() * 8
@@ -1099,8 +1109,9 @@ class MultiTable:
             ValueError: If the frame_type is unsupported.
 
         Example:
-            >>> mt.dtypes
-            {'col1': 'int64', 'col2': 'string', ...}
+            >>> mt.schema
+            {'age': pl.Int64, 'name': pl.Utf8}  # polars
+            {'age': IntegerType(), 'name': StringType()}  # pyspark
         """
         if self.frame_type == "pandas":
             return self.df.dtypes.apply(lambda dtype: dtype.name).to_dict()
@@ -1112,9 +1123,15 @@ class MultiTable:
             return {field.name: str(field.dataType) for field in self.df.schema.fields}
         
         else:
-            raise ValueError("Unsupported frame_type")
+            raise ValueError("MT200 Unsupported frame_type")
 
-    
+    @property
+    def schema(self) -> dict:
+        """
+        Alias for dtypes
+        """
+        return self.dtypes
+
     def validate_numeric_column(self, column_name: str) -> bool:
         """
         Validate that the target column is numeric.
@@ -1134,7 +1151,7 @@ class MultiTable:
             col_dtype = self.df.schema[column_name]
             numeric_types = {pl.Float32, pl.Float64, pl.Int8, pl.Int16, pl.Int32, pl.Int64, 
                            pl.UInt8, pl.UInt16, pl.UInt32, pl.UInt64}
-            if col_dtype not in numeric_types:
+            if col_dtype not in numeric_types and not isinstance(col_dtype, pl.Decimal):
                 print("MT721 Column data type:", col_dtype)
                 return False
 
@@ -1149,37 +1166,107 @@ class MultiTable:
         #important to return true if validation passes
         return True
     
-    def get_values_to_list(self, column_name: str, remove_nulls:bool=False) -> List:
+    def get_values_to_list(self, column_name: str, remove_nulls: bool=False) -> List:
         """
-        Extract non-null values from the column and return them sorted ascending
+        Extract values from a column and return them as a sorted Python list.
 
         Args:
-            column_name: Name of the column
-            remove_nulls: Whether to remove null values from the list. Defaults to False
+            column_name: Name of the column.
+            remove_nulls: Whether to remove null values from the list. Defaults to False.
 
         Returns:
-            list: list of values
+            list: Sorted list of values from the column.
         """
-        #intialise return list
         values = []
+
+        # Warn on large PySpark collects
+        if self.frame_type == "pyspark":
+            row_count = self.df.count()
+            if row_count > 50000:
+                print(f"MT730 Warning: get_values_to_list is collecting {row_count} rows into driver memory. This may be slow or cause OOM for large datasets.")
 
         if remove_nulls:
             if self.frame_type == "pandas":
                 values = self.df[column_name].dropna().tolist()
             elif self.frame_type == "polars":
-                values = self.df.select(pl.col(column_name)).drop_nulls().to_series().to_list()
+                sel = self.df.select(pl.col(column_name))
+                if isinstance(sel, pl.LazyFrame):
+                    sel = sel.collect()
+                values = sel.drop_nulls().to_series().to_list()
             elif self.frame_type == "pyspark":
                 values = [row[0] for row in self.df.select(column_name).dropna().collect()]
             else:
-                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for TopBottomNCoding")
-        elif not remove_nulls:
+                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for get_values_to_list")
+        else:
             if self.frame_type == "pandas":
                 values = self.df[column_name].tolist()
             elif self.frame_type == "polars":
-                values = self.df.select(pl.col(column_name)).to_series().to_list()
+                sel = self.df.select(pl.col(column_name))
+                if isinstance(sel, pl.LazyFrame):
+                    sel = sel.collect()
+                values = sel.to_series().to_list()
             elif self.frame_type == "pyspark":
                 values = [row[0] for row in self.df.select(column_name).collect()]
             else:
-                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for TopBottomNCoding")
+                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for get_values_to_list")
 
+        values.sort()
         return values
+
+    def validate_string_column(self, column_name: str) -> bool:
+        """
+        Validate that the target column is a string type.
+
+        Args:
+            column_name: Name of the column to check.
+
+        Returns:
+            bool: True if column is string type, False otherwise.
+        """
+        if self.frame_type == "pandas":
+            if not pd.api.types.is_string_dtype(self.df[column_name]):
+                print("MT722 Column data type:", self.df[column_name].dtype)
+                return False
+
+        elif self.frame_type == "polars":
+            col_dtype = self.df.schema[column_name]
+            if col_dtype != pl.Utf8:
+                print("MT722 Column data type:", col_dtype)
+                return False
+
+        elif self.frame_type == "pyspark":
+            dtype_str = self.dtypes.get(column_name, "")
+            if dtype_str != 'StringType()':
+                print("MT722 Column data type:", dtype_str)
+                return False
+
+        return True
+
+    def validate_datetime_column(self, column_name: str) -> bool:
+        """
+        Validate that the target column is a date or datetime type.
+
+        Args:
+            column_name: Name of the column to check.
+
+        Returns:
+            bool: True if column is date/datetime type, False otherwise.
+        """
+        if self.frame_type == "pandas":
+            if not pd.api.types.is_datetime64_any_dtype(self.df[column_name]):
+                print("MT723 Column data type:", self.df[column_name].dtype)
+                return False
+
+        elif self.frame_type == "polars":
+            col_dtype = self.df.schema[column_name]
+            if col_dtype not in {pl.Date, pl.Datetime}:
+                print("MT723 Column data type:", col_dtype)
+                return False
+
+        elif self.frame_type == "pyspark":
+            dtype_str = self.dtypes.get(column_name, "")
+            if dtype_str not in {'TimestampType()', 'DateType()'}:
+                print("MT723 Column data type:", dtype_str)
+                return False
+
+        return True
