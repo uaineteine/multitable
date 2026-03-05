@@ -762,7 +762,7 @@ class MultiTable:
             return MultiTable(new_df, src_path=self.src_path, table_name=str(self.table_name), frame_type=self.frame_type)
 
     @staticmethod
-    def write_native_df(dataframe, path:str, format: str = "parquet", frame_type: str = FrameTypeVerifier.pyspark, overwrite: bool = True, repart_no:int=2, part_on:list[str]=[], spark=None):
+    def write_native_df(dataframe, path:str, format: str = "parquet", frame_type: str = FrameTypeVerifier.pyspark, overwrite: bool = True, repart_no:int=4, part_on:list[str]=[], spark=None):
         """
         Write a DataFrame to a file in the specified format.
         """
@@ -820,7 +820,7 @@ class MultiTable:
         except Exception as e:
             print(f"MT800 cannot write file out. PATH {path} FORMAT {format}. EXCEPTION {e}")
 
-    def write(self, path:str, format: str = "parquet", overwrite: bool = True, part_on:list[str]=[], spark=None):
+    def write(self, path:str, format: str = "parquet", overwrite: bool = True, repart_no:int=4, part_on:list[str]=[], spark=None):
         """
         Write the DataFrame to a file in the specified format.
 
@@ -832,6 +832,8 @@ class MultiTable:
             File format to write. Defaults to "parquet". Supported formats: "parquet", "csv", "sas" (for PySpark).
         overwrite : bool, optional
             If True, overwrites existing files. Defaults to True.
+        repart_no: int, optional
+            If set, will create the number of target parts to output
         part_on: list, optional
             If set, the outputs via an engine will be parted (if supported)
         spark : optional
