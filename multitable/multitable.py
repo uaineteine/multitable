@@ -1126,16 +1126,17 @@ class MultiTable:
         #important to return true if validation passes
         return True
     
-    def get_values_to_list(self, column_name: str, remove_nulls: bool=False) -> List:
+    def get_values_to_list(self, column_name: str, remove_nulls: bool=False, sorted:bool=False) -> List:
         """
         Extract values from a column and return them as a sorted Python list.
 
         Args:
             column_name: Name of the column.
             remove_nulls: Whether to remove null values from the list. Defaults to False.
+            sorted: To sort the list after extraction. Default is false.
 
         Returns:
-            list: Sorted list of values from the column.
+            list: list of values from the column.
         """
         values = []
 
@@ -1170,7 +1171,9 @@ class MultiTable:
             else:
                 raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for get_values_to_list")
 
-        values.sort()
+        if sorted == True:
+            values.sort()
+
         return values
 
     def validate_string_column(self, column_name: str) -> bool:
