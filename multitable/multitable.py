@@ -7,7 +7,7 @@ import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
 from pyspark.sql.types import ByteType, BooleanType, ShortType, IntegerType, FloatType, LongType, DoubleType, TimestampType, DecimalType, StringType, BinaryType, DateType, ArrayType, MapType, StructType
-from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, round as spark_round, trim, regexp_replace
+from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, trim, regexp_replace
 import narwhals as nw
 
 #module imports
