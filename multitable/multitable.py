@@ -2,11 +2,13 @@ import os
 import re
 from math import ceil
 from typing import Union, List
+
 import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
 from pyspark.sql.types import ByteType, BooleanType, ShortType, IntegerType, FloatType, LongType, DoubleType, TimestampType, DecimalType, StringType, BinaryType, DateType, ArrayType, MapType, StructType
 from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, round as spark_round, trim, regexp_replace
+import narwhals as nw
 
 #module imports
 from naming_standards import Tablename
@@ -87,12 +89,9 @@ class MultiTable:
         sort columns alphabetically in-place. Defaults to True.
         """
         # Inline sort for each frame type
-        if self.frame_type == "pandas":
-            self.df = self.df[sorted(self.df.columns)]
-        elif self.frame_type == "polars":
-            self.df = self.df.select(sorted(self.df.columns))
-        elif self.frame_type == "pyspark":
-            self.df = self.df.select(*sorted(self.df.columns))
+        nw_df = nw.from_native(self.df)
+        self.df = nw.to_native(nw_df.select(sorted(nw_df.columns)))
+        
         return self
     
     @staticmethod
