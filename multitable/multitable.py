@@ -1126,25 +1126,24 @@ class MultiTable:
         #important to return true if validation passes
         return True
     
-    def get_values_to_list(self, column_name: str, remove_nulls: bool=False, sorted:bool=False) -> List:
+    def get_values_to_list(self, column_name: str, remove_nulls: bool=False, sort_values:bool=False) -> List:
         """
         Extract values from a column and return them as a sorted Python list.
 
         Args:
             column_name: Name of the column.
             remove_nulls: Whether to remove null values from the list. Defaults to False.
-            sorted: To sort the list after extraction. Default is false.
+            sort_values: To sort the list after extraction. Default is false.
 
         Returns:
             list: list of values from the column.
         """
         values = []
 
-        # Warn on large PySpark collects
-        if self.frame_type == "pyspark":
-            row_count = self.df.count()
-            if row_count > 50000:
-                print(f"MT730 Warning: get_values_to_list is collecting {row_count} rows into driver memory. This may be slow or cause OOM for large datasets.")
+        # Warn on large collects
+        row_count = self.nrow
+        if row_count > 50_000:
+            print(f"MT730 Warning: get_values_to_list is collecting {row_count} rows into driver memory. This may be slow or cause OOM for large datasets.")
 
         if remove_nulls:
             if self.frame_type == "pandas":
@@ -1171,7 +1170,7 @@ class MultiTable:
             else:
                 raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for get_values_to_list")
 
-        if sorted == True:
+        if sort_values == True:
             values.sort()
 
         return values
