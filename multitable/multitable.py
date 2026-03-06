@@ -7,7 +7,7 @@ import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
 from pyspark.sql.types import ByteType, BooleanType, ShortType, IntegerType, FloatType, LongType, DoubleType, TimestampType, DecimalType, StringType, BinaryType, DateType, ArrayType, MapType, StructType
-from pyspark.sql.functions import concat_ws, col, trim, regexp_replace
+from pyspark.sql.functions import concat_ws, col, regexp_replace
 import narwhals as nw
 
 #module imports
@@ -852,18 +852,9 @@ class MultiTable:
         Args:
             column (str): Column name to trim.
         """
-        if self.frame_type == "pandas":
-            self.df[column] = self.df[column].str.strip()
-
-        elif self.frame_type == "polars":
-            self.df = self.df.with_columns(
-                pl.col(column).str.strip_chars().alias(column)
-            )
-
-        elif self.frame_type == "pyspark":
-            self.df = self.df.withColumn(
-                column, trim(col(column))
-            )
+        nw_df = nw.from_native(self.df)
+        expr = nw.col(column).str.strip()
+        self.df = nw.to_native(nw_df.with_columns(expr))
 
     def concat(self, new_col_name: str, columns: list, sep: str = "_"):
         """
