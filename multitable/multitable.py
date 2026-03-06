@@ -285,17 +285,7 @@ class MultiTable:
             >>> mf = MultiTable.load("data.parquet", "parquet", "my_table", "pandas")
             >>> print(f"Number of rows: {mf.nrow}")
         """
-        if self.frame_type == "pyspark":
-            return self.df.count()
-        elif self.frame_type == "pandas":
-            return len(self.df)
-        elif self.frame_type == "polars":
-            if isinstance(self.df, pl.LazyFrame):
-                return self.df.select(pl.count()).collect().item()
-            else:
-                return len(self.df)
-        else:
-            raise ValueError("Unsupported frame_type")
+        return nw.from_native(self.df).count()
 
     def remove_character(self, col_to_alter:str, val_to_remove:str, index:str):
         """
@@ -987,18 +977,10 @@ class MultiTable:
         if isinstance(ascending, bool):
             ascending = [ascending] * len(by)
         if len(ascending) != len(by):
-            raise ValueError("Length of 'ascending' must match length of 'by' columns.")
+            raise ValueError("MT606 Length of 'ascending' must match length of 'by' columns.")
 
-        if self.frame_type == "pandas":
-            self.df = self.df.sort_values(by=by, ascending=ascending)
-        elif self.frame_type == "polars":
-            # Polars expects descending, so invert ascending
-            self.df = self.df.sort(by, descending=[not asc for asc in ascending])
-        elif self.frame_type == "pyspark":
-            sort_cols = [col(c) if asc else col(c).desc() for c, asc in zip(by, ascending)]
-            self.df = self.df.orderBy(*sort_cols)
-        else:
-            raise ValueError("Unsupported frame_type for sort")
+        nw_df = nw.from_native(self.df)
+        self.df = nw.to_native(nw_df.sort(by, descending=[not a for a in ascending]))
 
         return self
 
@@ -1013,16 +995,8 @@ class MultiTable:
         if column not in self.columns:
                 raise ValueError(f"MT750 Column '{column}' does not exist in the DataFrame.")
         
-        if self.frame_type == "pandas":
-            self.df[column] = self.df[column].round(decimals)
-        elif self.frame_type == "polars":
-            self.df = self.df.with_columns(
-                pl.col(column).round(decimals).alias(column)
-            )
-        elif self.frame_type == "pyspark":
-            self.df = self.df.withColumn(
-                column, spark_round(col(column), decimals)
-            )
+        nw_df = nw.from_native(self.df)
+        self.df = nw.to_native(nw_df.with_columns(nw.col(column).round(decimals)))
     
     def sample(self, n: int = None, frac: float = None, seed: int = None):
         """
@@ -1039,21 +1013,8 @@ class MultiTable:
         if n is not None and frac is not None:
             raise ValueError("Specify either `n` or `frac`, not both.")
 
-        if self.frame_type == FrameTypeVerifier.pandas:
-            self.df = self.df.sample(n=n, frac=frac, random_state=seed)
-        elif self.frame_type == FrameTypeVerifier.polars:
-            if frac is not None:
-                self.df = self.df.sample(frac=frac, seed=seed)
-            else:
-                self.df = self.df.sample(n=n, seed=seed)
-        elif self.frame_type == FrameTypeVerifier.pyspark:
-            if frac is None:
-                if n is None:
-                    raise ValueError("Must specify either `n` or `frac` for sampling.")
-                frac = n / self.df.count()
-            self.df = self.df.sample(withReplacement=False, fraction=frac, seed=seed)
-        else:
-            raise NotImplementedError(f"Sampling not supported for frame type {self.frame_type}")
+        nw_df = nw.from_native(self.df)
+        self.df = nw.to_native(nw_df.sample(n=n, frac=frac, seed=seed))
     
     def estimate_frame_size(self, output_format:str="bits") -> int:
         """
