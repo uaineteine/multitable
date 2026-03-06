@@ -843,7 +843,7 @@ class MultiTable:
             if p not in self.columns:
                 raise ValueError(f"MT600 there is no column {p} in df. Please part on existing columns only: {self.columns}")
 
-        MultiTable.write_native_df(self.df, path, format, self.frame_type, overwrite, part_on=part_on, spark=spark)
+        MultiTable.write_native_df(self.df, path, format, self.frame_type, overwrite, repart_no=repart_no, part_on=part_on, spark=spark)
 
     def trimwhite(self, column:str):
         """
