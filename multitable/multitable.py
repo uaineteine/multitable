@@ -7,7 +7,7 @@ import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
 from pyspark.sql.types import ByteType, BooleanType, ShortType, IntegerType, FloatType, LongType, DoubleType, TimestampType, DecimalType, StringType, BinaryType, DateType, ArrayType, MapType, StructType
-from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, trim, regexp_replace
+from pyspark.sql.functions import concat_ws, col, trim, regexp_replace
 import narwhals as nw
 
 #module imports
@@ -908,46 +908,17 @@ class MultiTable:
         Raises:
             ValueError: If the frame_type is unsupported.
         """
-        if self.frame_type == "pandas":
-            if sep:
-                self.df[column] = self.df[column].str.split(sep)
+        nw_df = nw.from_native(self.df)
 
-            if outer:
-                # Pandas explode already keeps NaN, so it's effectively outer
-                self.df = self.df.explode(column, ignore_index=True)
-            else:
-                # dropna ensures we mimic non-outer explode
-                self.df = self.df.explode(column, ignore_index=True).dropna(subset=[column])
+        if sep:
+            nw_df = nw_df.with_columns(nw.col(column).str.split(sep))
 
-        elif self.frame_type == "polars":
-            if sep:
-                self.df = self.df.with_columns(pl.col(column).str.split(sep))
-
-            if outer:
-                # Polars explode keeps nulls, so same as outer
-                self.df = self.df.with_columns(pl.col(column).explode())
-            else:
-                # filter out nulls to mimic non-outer explode
-                self.df = (
-                    self.df.filter(pl.col(column).is_not_null())
-                    .with_columns(pl.col(column).explode())
-                )
-
-        elif self.frame_type == "pyspark":
-            if sep:
-                # Escape regex special characters for PySpark split function
-                escaped_sep = re.escape(sep)
-                self.df = self.df.withColumn(column, split(col(column), escaped_sep))
-
-            if outer:
-                self.df = self.df.withColumn(column, explode_outer(col(column)))
-            else:
-                self.df = self.df.withColumn(column, explode(col(column)))
-
+        if outer:
+            nw_df = nw_df.explode(column)
         else:
-            raise ValueError("Unsupported frame_type for explode")
+            nw_df = nw_df.filter(nw.col(column).is_not_null()).explode(column)
 
-        return None
+        self.df = nw.to_native(nw_df)
 
     def sort(self, by: Union[str, List[str]], ascending: Union[bool, List[bool]] = True) -> "MultiTable":
         """
