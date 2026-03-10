@@ -2,11 +2,13 @@ import os
 import re
 from math import ceil
 from typing import Union, List
+
 import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
 from pyspark.sql.types import ByteType, BooleanType, ShortType, IntegerType, FloatType, LongType, DoubleType, TimestampType, DecimalType, StringType, BinaryType, DateType, ArrayType, MapType, StructType
-from pyspark.sql.functions import concat_ws, col, explode, explode_outer, split, round as spark_round, trim, regexp_replace
+from pyspark.sql.functions import concat_ws, col, regexp_replace
+import narwhals as nw
 
 #module imports
 from naming_standards import Tablename
@@ -87,12 +89,9 @@ class MultiTable:
         sort columns alphabetically in-place. Defaults to True.
         """
         # Inline sort for each frame type
-        if self.frame_type == "pandas":
-            self.df = self.df[sorted(self.df.columns)]
-        elif self.frame_type == "polars":
-            self.df = self.df.select(sorted(self.df.columns))
-        elif self.frame_type == "pyspark":
-            self.df = self.df.select(*sorted(self.df.columns))
+        nw_df = nw.from_native(self.df)
+        self.df = nw.to_native(nw_df.select(sorted(nw_df.columns)))
+        
         return self
     
     @staticmethod
@@ -286,17 +285,7 @@ class MultiTable:
             >>> mf = MultiTable.load("data.parquet", "parquet", "my_table", "pandas")
             >>> print(f"Number of rows: {mf.nrow}")
         """
-        if self.frame_type == "pyspark":
-            return self.df.count()
-        elif self.frame_type == "pandas":
-            return len(self.df)
-        elif self.frame_type == "polars":
-            if isinstance(self.df, pl.LazyFrame):
-                return self.df.select(pl.count()).collect().item()
-            else:
-                return len(self.df)
-        else:
-            raise ValueError("Unsupported frame_type")
+        return nw.from_native(self.df).count()
 
     def remove_character(self, col_to_alter:str, val_to_remove:str, index:str):
         """
@@ -854,7 +843,7 @@ class MultiTable:
             if p not in self.columns:
                 raise ValueError(f"MT600 there is no column {p} in df. Please part on existing columns only: {self.columns}")
 
-        MultiTable.write_native_df(self.df, path, format, self.frame_type, overwrite, part_on=part_on, spark=spark)
+        MultiTable.write_native_df(self.df, path, format, self.frame_type, overwrite, repart_no=repart_no, part_on=part_on, spark=spark)
 
     def trimwhite(self, column:str):
         """
@@ -863,18 +852,9 @@ class MultiTable:
         Args:
             column (str): Column name to trim.
         """
-        if self.frame_type == "pandas":
-            self.df[column] = self.df[column].str.strip()
-
-        elif self.frame_type == "polars":
-            self.df = self.df.with_columns(
-                pl.col(column).str.strip_chars().alias(column)
-            )
-
-        elif self.frame_type == "pyspark":
-            self.df = self.df.withColumn(
-                column, trim(col(column))
-            )
+        nw_df = nw.from_native(self.df)
+        expr = nw.col(column).str.strip()
+        self.df = nw.to_native(nw_df.with_columns(expr))
 
     def concat(self, new_col_name: str, columns: list, sep: str = "_"):
         """
@@ -919,46 +899,17 @@ class MultiTable:
         Raises:
             ValueError: If the frame_type is unsupported.
         """
-        if self.frame_type == "pandas":
-            if sep:
-                self.df[column] = self.df[column].str.split(sep)
+        nw_df = nw.from_native(self.df)
 
-            if outer:
-                # Pandas explode already keeps NaN, so it's effectively outer
-                self.df = self.df.explode(column, ignore_index=True)
-            else:
-                # dropna ensures we mimic non-outer explode
-                self.df = self.df.explode(column, ignore_index=True).dropna(subset=[column])
+        if sep:
+            nw_df = nw_df.with_columns(nw.col(column).str.split(sep))
 
-        elif self.frame_type == "polars":
-            if sep:
-                self.df = self.df.with_columns(pl.col(column).str.split(sep))
-
-            if outer:
-                # Polars explode keeps nulls, so same as outer
-                self.df = self.df.with_columns(pl.col(column).explode())
-            else:
-                # filter out nulls to mimic non-outer explode
-                self.df = (
-                    self.df.filter(pl.col(column).is_not_null())
-                    .with_columns(pl.col(column).explode())
-                )
-
-        elif self.frame_type == "pyspark":
-            if sep:
-                # Escape regex special characters for PySpark split function
-                escaped_sep = re.escape(sep)
-                self.df = self.df.withColumn(column, split(col(column), escaped_sep))
-
-            if outer:
-                self.df = self.df.withColumn(column, explode_outer(col(column)))
-            else:
-                self.df = self.df.withColumn(column, explode(col(column)))
-
+        if outer:
+            nw_df = nw_df.explode(column)
         else:
-            raise ValueError("Unsupported frame_type for explode")
+            nw_df = nw_df.filter(nw.col(column).is_not_null()).explode(column)
 
-        return None
+        self.df = nw.to_native(nw_df)
 
     def sort(self, by: Union[str, List[str]], ascending: Union[bool, List[bool]] = True) -> "MultiTable":
         """
@@ -988,18 +939,10 @@ class MultiTable:
         if isinstance(ascending, bool):
             ascending = [ascending] * len(by)
         if len(ascending) != len(by):
-            raise ValueError("Length of 'ascending' must match length of 'by' columns.")
+            raise ValueError("MT606 Length of 'ascending' must match length of 'by' columns.")
 
-        if self.frame_type == "pandas":
-            self.df = self.df.sort_values(by=by, ascending=ascending)
-        elif self.frame_type == "polars":
-            # Polars expects descending, so invert ascending
-            self.df = self.df.sort(by, descending=[not asc for asc in ascending])
-        elif self.frame_type == "pyspark":
-            sort_cols = [col(c) if asc else col(c).desc() for c, asc in zip(by, ascending)]
-            self.df = self.df.orderBy(*sort_cols)
-        else:
-            raise ValueError("Unsupported frame_type for sort")
+        nw_df = nw.from_native(self.df)
+        self.df = nw.to_native(nw_df.sort(by, descending=[not a for a in ascending]))
 
         return self
 
@@ -1014,16 +957,8 @@ class MultiTable:
         if column not in self.columns:
                 raise ValueError(f"MT750 Column '{column}' does not exist in the DataFrame.")
         
-        if self.frame_type == "pandas":
-            self.df[column] = self.df[column].round(decimals)
-        elif self.frame_type == "polars":
-            self.df = self.df.with_columns(
-                pl.col(column).round(decimals).alias(column)
-            )
-        elif self.frame_type == "pyspark":
-            self.df = self.df.withColumn(
-                column, spark_round(col(column), decimals)
-            )
+        nw_df = nw.from_native(self.df)
+        self.df = nw.to_native(nw_df.with_columns(nw.col(column).round(decimals)))
     
     def sample(self, n: int = None, frac: float = None, seed: int = None):
         """
@@ -1040,21 +975,8 @@ class MultiTable:
         if n is not None and frac is not None:
             raise ValueError("Specify either `n` or `frac`, not both.")
 
-        if self.frame_type == FrameTypeVerifier.pandas:
-            self.df = self.df.sample(n=n, frac=frac, random_state=seed)
-        elif self.frame_type == FrameTypeVerifier.polars:
-            if frac is not None:
-                self.df = self.df.sample(frac=frac, seed=seed)
-            else:
-                self.df = self.df.sample(n=n, seed=seed)
-        elif self.frame_type == FrameTypeVerifier.pyspark:
-            if frac is None:
-                if n is None:
-                    raise ValueError("Must specify either `n` or `frac` for sampling.")
-                frac = n / self.df.count()
-            self.df = self.df.sample(withReplacement=False, fraction=frac, seed=seed)
-        else:
-            raise NotImplementedError(f"Sampling not supported for frame type {self.frame_type}")
+        nw_df = nw.from_native(self.df)
+        self.df = nw.to_native(nw_df.sample(n=n, frac=frac, seed=seed))
     
     def estimate_frame_size(self, output_format:str="bits") -> int:
         """
@@ -1166,51 +1088,36 @@ class MultiTable:
         #important to return true if validation passes
         return True
     
-    def get_values_to_list(self, column_name: str, remove_nulls: bool=False) -> List:
+    def get_values_to_list(self, column_name: str, remove_nulls: bool=False, sort_values:bool=False) -> List:
         """
         Extract values from a column and return them as a sorted Python list.
 
         Args:
             column_name: Name of the column.
             remove_nulls: Whether to remove null values from the list. Defaults to False.
+            sort_values: To sort the list after extraction. Default is false.
 
         Returns:
-            list: Sorted list of values from the column.
+            list: list of values from the column.
         """
         values = []
 
-        # Warn on large PySpark collects
-        if self.frame_type == "pyspark":
-            row_count = self.df.count()
-            if row_count > 50000:
-                print(f"MT730 Warning: get_values_to_list is collecting {row_count} rows into driver memory. This may be slow or cause OOM for large datasets.")
+        # Warn on large collects
+        row_count = self.nrow
+        if row_count > 50_000:
+            print(f"MT730 Warning: get_values_to_list is collecting {row_count} rows into driver memory. This may be slow or cause OOM for large datasets.")
 
+        nw_df = nw.from_native(self.df)
+
+        expr = nw.col(column_name)
         if remove_nulls:
-            if self.frame_type == "pandas":
-                values = self.df[column_name].dropna().tolist()
-            elif self.frame_type == "polars":
-                sel = self.df.select(pl.col(column_name))
-                if isinstance(sel, pl.LazyFrame):
-                    sel = sel.collect()
-                values = sel.drop_nulls().to_series().to_list()
-            elif self.frame_type == "pyspark":
-                values = [row[0] for row in self.df.select(column_name).dropna().collect()]
-            else:
-                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for get_values_to_list")
-        else:
-            if self.frame_type == "pandas":
-                values = self.df[column_name].tolist()
-            elif self.frame_type == "polars":
-                sel = self.df.select(pl.col(column_name))
-                if isinstance(sel, pl.LazyFrame):
-                    sel = sel.collect()
-                values = sel.to_series().to_list()
-            elif self.frame_type == "pyspark":
-                values = [row[0] for row in self.df.select(column_name).collect()]
-            else:
-                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for get_values_to_list")
+            expr = expr.drop_nulls()
 
-        values.sort()
+        values = nw_df.select(expr).to_series().to_list()
+
+        if sort_values == True:
+            values.sort()
+
         return values
 
     def validate_string_column(self, column_name: str) -> bool:
