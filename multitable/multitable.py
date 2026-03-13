@@ -285,7 +285,7 @@ class MultiTable:
             >>> mf = MultiTable.load("data.parquet", "parquet", "my_table", "pandas")
             >>> print(f"Number of rows: {mf.nrow}")
         """
-        return nw.from_native(self.df).count()
+        return nw.from_native(self.df).height
 
     def remove_character(self, col_to_alter:str, val_to_remove:str, index:str):
         """
