@@ -7,7 +7,7 @@ import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
 from pyspark.sql.types import ByteType, BooleanType, ShortType, IntegerType, FloatType, LongType, DoubleType, TimestampType, DecimalType, StringType, BinaryType, DateType, ArrayType, MapType, StructType
-from pyspark.sql.functions import concat_ws, col, regexp_replace
+from pyspark.sql.functions import concat_ws, col, regexp_replace, trim
 import narwhals as nw
 
 #module imports
@@ -285,7 +285,17 @@ class MultiTable:
             >>> mf = MultiTable.load("data.parquet", "parquet", "my_table", "pandas")
             >>> print(f"Number of rows: {mf.nrow}")
         """
-        return nw.from_native(self.df).height
+        if self.frame_type == "pyspark":
+            return self.df.count()
+        elif self.frame_type == "pandas":
+            return len(self.df)
+        elif self.frame_type == "polars":
+            if isinstance(self.df, pl.LazyFrame):
+                return self.df.select(pl.count()).collect().item()
+            else:
+                return len(self.df)
+        else:
+            raise ValueError("Unsupported frame_type")
 
     def remove_character(self, col_to_alter:str, val_to_remove:str, index:str):
         """
@@ -852,9 +862,18 @@ class MultiTable:
         Args:
             column (str): Column name to trim.
         """
-        nw_df = nw.from_native(self.df)
-        expr = nw.col(column).str.strip()
-        self.df = nw.to_native(nw_df.with_columns(expr))
+        if self.frame_type == "pandas":
+            self.df[column] = self.df[column].str.strip()
+
+        elif self.frame_type == "polars":
+            self.df = self.df.with_columns(
+                pl.col(column).str.strip_chars().alias(column)
+            )
+
+        elif self.frame_type == "pyspark":
+            self.df = self.df.withColumn(
+                column, trim(col(column))
+            )
 
     def concat(self, new_col_name: str, columns: list, sep: str = "_"):
         """
