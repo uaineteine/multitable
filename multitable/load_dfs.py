@@ -1,7 +1,6 @@
 import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame
-import polars_readstat as prs
 from deltalake import DeltaTable
 
 
@@ -44,7 +43,5 @@ def _load_polars_df(path:str, format: str = "parquet", table_name: str = "") -> 
         raise ValueError("MT003 Delta format not supported for polars. Use pandas instead.")
     elif format == "csv":
         return pl.scan_csv(path)  # Default: header inferred
-    elif format == "sas":
-        return prs.scan_readstat(path)
     else:
        raise ValueError("MT004 Unsupported format for polars")

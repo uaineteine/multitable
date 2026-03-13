@@ -821,7 +821,7 @@ class MultiTable:
         path : str
             Destination file path.
         format : str, optional
-            File format to write. Defaults to "parquet". Supported formats: "parquet", "csv", "sas" (for PySpark).
+            File format to write. Defaults to "parquet". Supported formats: "parquet", "csv"
         overwrite : bool, optional
             If True, overwrites existing files. Defaults to True.
         repart_no: int, optional
