@@ -236,6 +236,8 @@ class MultiTable:
         elif self.frame_type == "pandas":
             return list(self.df.columns)
         elif self.frame_type == "polars":
+            if isinstance(self.df, pl.LazyFrame):
+                return self.df.collect().columns
             return self.df.columns
         else:
             raise ValueError("Unsupported frame_type")
