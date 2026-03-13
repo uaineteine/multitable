@@ -18,7 +18,7 @@ from functools import reduce
 
 # CONSTANT PARAMETERS FOR MODULE
 
-module_version = "1.5.1"
+module_version = "1.5.2"
 meta_version = "1.0"
 """str: The version number of this module.
 Used to track compatibility and changes across releases.

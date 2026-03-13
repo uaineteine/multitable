@@ -1152,13 +1152,30 @@ class MultiTable:
         if row_count > 50_000:
             print(f"MT730 Warning: get_values_to_list is collecting {row_count} rows into driver memory. This may be slow or cause OOM for large datasets.")
 
-        nw_df = nw.from_native(self.df)
-
-        expr = nw.col(column_name)
         if remove_nulls:
-            expr = expr.drop_nulls()
-
-        values = nw_df.select(expr).to_series().to_list()
+            if self.frame_type == "pandas":
+                values = self.df[column_name].dropna().tolist()
+            elif self.frame_type == "polars":
+                sel = self.df.select(pl.col(column_name))
+                if isinstance(sel, pl.LazyFrame):
+                    sel = sel.collect()
+                values = sel.drop_nulls().to_series().to_list()
+            elif self.frame_type == "pyspark":
+                values = [row[0] for row in self.df.select(column_name).dropna().collect()]
+            else:
+                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for get_values_to_list")
+        else:
+            if self.frame_type == "pandas":
+                values = self.df[column_name].tolist()
+            elif self.frame_type == "polars":
+                sel = self.df.select(pl.col(column_name))
+                if isinstance(sel, pl.LazyFrame):
+                    sel = sel.collect()
+                values = sel.to_series().to_list()
+            elif self.frame_type == "pyspark":
+                values = [row[0] for row in self.df.select(column_name).collect()]
+            else:
+                raise NotImplementedError(f"MT729 Backend '{self.frame_type}' not supported for get_values_to_list")
 
         if sort_values == True:
             values.sort()
