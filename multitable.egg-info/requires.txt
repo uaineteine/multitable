@@ -3,7 +3,7 @@ tabulate
 itables
 pandas
 pyspark
-polars-readstat
 deltalake
+narwhals
 naming-standards>=1.0.0
 adaptiveio>=2.0.4
