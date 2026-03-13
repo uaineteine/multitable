@@ -7,7 +7,7 @@ import polars as pl
 import pandas as pd
 from pyspark.sql import DataFrame as SparkDataFrame, SparkSession
 from pyspark.sql.types import ByteType, BooleanType, ShortType, IntegerType, FloatType, LongType, DoubleType, TimestampType, DecimalType, StringType, BinaryType, DateType, ArrayType, MapType, StructType
-from pyspark.sql.functions import concat_ws, col, regexp_replace
+from pyspark.sql.functions import concat_ws, col, regexp_replace, trim
 import narwhals as nw
 
 #module imports
@@ -236,6 +236,8 @@ class MultiTable:
         elif self.frame_type == "pandas":
             return list(self.df.columns)
         elif self.frame_type == "polars":
+            if isinstance(self.df, pl.LazyFrame):
+                return self.df.collect().columns
             return self.df.columns
         else:
             raise ValueError("Unsupported frame_type")
@@ -285,7 +287,17 @@ class MultiTable:
             >>> mf = MultiTable.load("data.parquet", "parquet", "my_table", "pandas")
             >>> print(f"Number of rows: {mf.nrow}")
         """
-        return nw.from_native(self.df).count()
+        if self.frame_type == "pyspark":
+            return self.df.count()
+        elif self.frame_type == "pandas":
+            return len(self.df)
+        elif self.frame_type == "polars":
+            if isinstance(self.df, pl.LazyFrame):
+                return self.df.select(pl.count()).collect().item()
+            else:
+                return len(self.df)
+        else:
+            raise ValueError("Unsupported frame_type")
 
     def remove_character(self, col_to_alter:str, val_to_remove:str, index:str):
         """
@@ -821,7 +833,7 @@ class MultiTable:
         path : str
             Destination file path.
         format : str, optional
-            File format to write. Defaults to "parquet". Supported formats: "parquet", "csv", "sas" (for PySpark).
+            File format to write. Defaults to "parquet". Supported formats: "parquet", "csv"
         overwrite : bool, optional
             If True, overwrites existing files. Defaults to True.
         repart_no: int, optional
@@ -852,9 +864,18 @@ class MultiTable:
         Args:
             column (str): Column name to trim.
         """
-        nw_df = nw.from_native(self.df)
-        expr = nw.col(column).str.strip()
-        self.df = nw.to_native(nw_df.with_columns(expr))
+        if self.frame_type == "pandas":
+            self.df[column] = self.df[column].str.strip()
+
+        elif self.frame_type == "polars":
+            self.df = self.df.with_columns(
+                pl.col(column).str.strip_chars().alias(column)
+            )
+
+        elif self.frame_type == "pyspark":
+            self.df = self.df.withColumn(
+                column, trim(col(column))
+            )
 
     def concat(self, new_col_name: str, columns: list, sep: str = "_"):
         """
@@ -972,11 +993,35 @@ class MultiTable:
         Returns:
             None
         """
+        """
+        Sample rows from the DataFrame and replace the existing DataFrame inplace.
+
+        Args:
+            n (int, optional): Number of rows to sample. Mutually exclusive with `frac`.
+            frac (float, optional): Fraction of rows to sample. Mutually exclusive with `n`.
+            seed (int, optional): Random seed for reproducibility.
+
+        Returns:
+            None
+        """
         if n is not None and frac is not None:
             raise ValueError("Specify either `n` or `frac`, not both.")
 
-        nw_df = nw.from_native(self.df)
-        self.df = nw.to_native(nw_df.sample(n=n, frac=frac, seed=seed))
+        if self.frame_type == FrameTypeVerifier.pandas:
+            self.df = self.df.sample(n=n, frac=frac, random_state=seed)
+        elif self.frame_type == FrameTypeVerifier.polars:
+            if frac is not None:
+                self.df = self.df.sample(frac=frac, seed=seed)
+            else:
+                self.df = self.df.sample(n=n, seed=seed)
+        elif self.frame_type == FrameTypeVerifier.pyspark:
+            if frac is None:
+                if n is None:
+                    raise ValueError("Must specify either `n` or `frac` for sampling.")
+                frac = n / self.df.count()
+            self.df = self.df.sample(withReplacement=False, fraction=frac, seed=seed)
+        else:
+            raise NotImplementedError(f"Sampling not supported for frame type {self.frame_type}")
     
     def estimate_frame_size(self, output_format:str="bits") -> int:
         """
